@@ -100,7 +100,7 @@ export default function Landing() {
               <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="font-bold text-lg">OddsScanner</span>
+              <span className="font-bold text-lg">MVP</span>
             </div>
 
             <nav className="hidden md:flex items-center gap-6">
@@ -171,7 +171,7 @@ export default function Landing() {
             Ready to Start Finding Value?
           </h2>
           <p className="text-lg text-primary-foreground/90">
-            Join thousands of smart bettors using OddsScanner to maximize their edge.
+            Join thousands of smart bettors using MVP to maximize their edge.
           </p>
           <div className="flex flex-wrap gap-4 justify-center pt-4">
             <Button size="lg" className="gap-2 bg-background text-foreground hover:bg-background/90 border-2 border-primary" data-testid="button-cta-start">
@@ -189,10 +189,10 @@ export default function Landing() {
               <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="font-semibold">OddsScanner</span>
+              <span className="font-semibold">MVP</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2025 OddsScanner. All rights reserved.
+              © 2025 MVP. All rights reserved.
             </p>
           </div>
         </div>
