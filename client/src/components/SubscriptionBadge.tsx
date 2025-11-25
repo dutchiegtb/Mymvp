@@ -10,19 +10,19 @@ interface SubscriptionBadgeProps {
 const tierConfig = {
   free: {
     label: "Free",
-    className: "bg-secondary text-secondary-foreground",
+    className: "bg-muted text-muted-foreground",
   },
   tier1: {
     label: "Pro",
-    className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white",
+    className: "bg-gradient-to-r from-secondary to-primary text-foreground font-semibold",
   },
   tier2: {
     label: "Premium",
-    className: "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
+    className: "bg-gradient-to-r from-warning to-primary text-foreground font-semibold",
   },
   tier3: {
     label: "Elite",
-    className: "bg-gradient-to-r from-slate-700 to-slate-900 text-white",
+    className: "bg-gradient-to-r from-chart-4 to-warning text-foreground font-semibold",
   },
 };
 

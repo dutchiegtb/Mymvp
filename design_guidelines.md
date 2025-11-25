@@ -2,14 +2,21 @@
 
 ## Design Approach
 
-**Reference-Based Hybrid**: Drawing from professional sports data platforms (OddsJam, Action Network, ESPN Stats) combined with modern SaaS design patterns for subscription features. Focus on data hierarchy, scannability, and trust-building through professional presentation.
+**Electric Neon Dark Mode**: Inspired by modern betting platforms (PrizePicks, Sleeper, Draft Dashboard) with a high-energy, profit-focused aesthetic. Dark mode default makes numbers and EV data "pop" while maintaining professional credibility.
 
 ## Core Design Principles
 
-1. **Data-First Hierarchy**: Odds and EV values must be immediately scannable
-2. **Trust Through Clarity**: Professional, clean layouts that inspire confidence in the data
-3. **Speed Indicators**: Visual cues for time-sensitive opportunities
-4. **Tier Differentiation**: Clear visual distinction between free and premium features
+1. **Data-First Hierarchy**: Odds and EV values must be immediately scannable with high contrast
+2. **Energy & Trust**: Neon accents convey speed and winning while maintaining professional UX
+3. **Speed Indicators**: Visual cues for time-sensitive opportunities using animated elements
+4. **Tier Differentiation**: Clear visual distinction using gold gradients for premium features
+
+## Color Psychology
+
+- **Electric Green (#00FF7F)**: Winning, positive EV, high-value picks - the primary action color
+- **Neon Blue (#00CFFF)**: Technology, clarity, secondary actions - complements green
+- **Gold/Yellow (#FFCC00)**: Premium features, medium EV, highlights - creates hierarchy
+- **Deep Charcoal (#0D0D0D)**: Background - makes neon colors pop and reduces eye strain
 
 ## Typography
 

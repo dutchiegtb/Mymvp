@@ -3,11 +3,11 @@ import { TrendingUp, ArrowRight } from "lucide-react";
 
 export default function Hero() {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-b from-primary/5 to-background">
+    <div className="relative overflow-hidden bg-gradient-to-b from-primary/10 to-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 text-primary text-sm font-semibold border border-primary/30">
               <TrendingUp className="h-4 w-4" />
               <span>Trusted by 10,000+ bettors</span>
             </div>
@@ -49,16 +49,16 @@ export default function Hero() {
           </div>
 
           <div className="relative">
-            <div className="aspect-[4/3] rounded-lg border bg-card p-4 shadow-lg">
+            <div className="aspect-[4/3] rounded-lg border border-primary/20 bg-card p-4 shadow-lg shadow-primary/10">
               <div className="h-full flex items-center justify-center text-muted-foreground">
                 <div className="text-center space-y-2">
-                  <TrendingUp className="h-16 w-16 mx-auto text-primary" />
+                  <TrendingUp className="h-16 w-16 mx-auto text-primary animate-pulse" />
                   <p className="text-sm">Live Dashboard Preview</p>
                 </div>
               </div>
             </div>
-            <div className="absolute -bottom-6 -right-6 h-32 w-32 bg-primary/20 rounded-full blur-3xl"></div>
-            <div className="absolute -top-6 -left-6 h-32 w-32 bg-success/20 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-6 -right-6 h-48 w-48 bg-primary/30 rounded-full blur-3xl"></div>
+            <div className="absolute -top-6 -left-6 h-48 w-48 bg-secondary/30 rounded-full blur-3xl"></div>
           </div>
         </div>
 
