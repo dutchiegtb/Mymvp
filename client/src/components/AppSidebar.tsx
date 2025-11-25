@@ -40,7 +40,7 @@ export default function AppSidebar({ userTier = "free" }: AppSidebarProps) {
           <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
             <TrendingUp className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-bold text-lg">OddsScanner</span>
+          <span className="font-bold text-lg">MVP</span>
         </div>
         <div className="mt-4">
           <SubscriptionBadge tier={userTier} />
