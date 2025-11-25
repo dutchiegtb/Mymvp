@@ -164,16 +164,17 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="py-24 bg-primary text-primary-foreground">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <h2 className="text-3xl md:text-4xl font-bold">
+      <section className="py-24 bg-gradient-to-r from-primary via-secondary to-primary relative overflow-hidden">
+        <div className="absolute inset-0 bg-background/10"></div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 relative">
+          <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground">
             Ready to Start Finding Value?
           </h2>
-          <p className="text-lg opacity-90">
+          <p className="text-lg text-primary-foreground/90">
             Join thousands of smart bettors using OddsScanner to maximize their edge.
           </p>
           <div className="flex flex-wrap gap-4 justify-center pt-4">
-            <Button size="lg" variant="secondary" className="gap-2" data-testid="button-cta-start">
+            <Button size="lg" className="gap-2 bg-background text-foreground hover:bg-background/90 border-2 border-primary" data-testid="button-cta-start">
               Start Free Trial
               <TrendingUp className="h-4 w-4" />
             </Button>
