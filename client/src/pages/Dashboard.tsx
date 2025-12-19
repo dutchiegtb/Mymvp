@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import ThemeToggle from "@/components/ThemeToggle";
-import SportFilterBar from "@/components/SportFilterBar";
 import ValuePickCard from "@/components/ValuePickCard";
 import PaywallCard from "@/components/PaywallCard";
 import OddsComparisonTable from "@/components/OddsComparisonTable";
@@ -10,8 +10,48 @@ import ParlayBuilder from "@/components/ParlayBuilder";
 import TopPicksSection from "@/components/TopPicksSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Activity } from "lucide-react";
+import { Activity, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { ParlayLeg } from "@/components/ParlayBuilder";
+
+interface EVPick {
+  id: string;
+  game: string;
+  sport: string;
+  sportKey: string;
+  market: string;
+  selection: string;
+  point: number | null;
+  bestBook: string;
+  bestOdds: number;
+  worstBook: string;
+  worstOdds: number;
+  evPercent: number;
+  confidence: number;
+  commenceTime: string;
+  reasoning: string;
+}
+
+interface EVPicksResponse {
+  picks: EVPick[];
+  total: number;
+  lastUpdated: string;
+}
+
+interface TopPicksResponse {
+  picks: (EVPick & { rank: number })[];
+  sport: string;
+  lastUpdated: string;
+}
+
+const sportKeyMap: Record<string, string> = {
+  'all': 'all',
+  'nba': 'basketball_nba',
+  'nfl': 'americanfootball_nfl',
+  'mlb': 'baseball_mlb',
+  'nhl': 'icehockey_nhl',
+  'soccer': 'soccer_epl',
+};
 
 export default function Dashboard() {
   const style = {
@@ -19,142 +59,19 @@ export default function Dashboard() {
   };
 
   const [selectedSport, setSelectedSport] = useState("all");
+  const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
 
-  // todo: remove mock functionality - Mock data for demonstration
-  const mockPicks = [
-    {
-      id: '1',
-      playerName: 'LeBron James',
-      statType: 'Points',
-      sport: 'NBA',
-      book1: { name: 'FanDuel', line: 27.5 },
-      book2: { name: 'PrizePicks', line: 29.5 },
-      ev: 12.5,
-      recommendation: 'OVER 27.5 @ FD',
-      timestamp: '5 min ago',
-    },
-    {
-      id: '2',
-      playerName: 'Stephen Curry',
-      statType: '3-Pointers',
-      sport: 'NBA',
-      book1: { name: 'DraftKings', line: 4.5 },
-      book2: { name: 'Underdog', line: 5.5 },
-      ev: 8.2,
-      recommendation: 'UNDER 5.5 @ UD',
-      timestamp: '12 min ago',
-    },
-    {
-      id: '3',
-      playerName: 'Patrick Mahomes',
-      statType: 'Passing Yards',
-      sport: 'NFL',
-      book1: { name: 'BetMGM', line: 285.5 },
-      book2: { name: 'FanDuel', line: 288.5 },
-      ev: 5.7,
-      recommendation: 'OVER 285.5 @ BetMGM',
-      timestamp: '18 min ago',
-    },
-  ];
+  const sportApiKey = sportKeyMap[selectedSport] || 'all';
 
-  const mockTopPicks = [
-    {
-      id: '1',
-      rank: 1,
-      player: 'LeBron James',
-      stat: 'Points',
-      sport: 'NBA',
-      selection: 'OVER 27.5',
-      ev: 18.2,
-      confidence: 92,
-      book: 'FanDuel',
-      line: 27.5,
-      reasoning: 'Matchup against bottom-5 defense. LeBron averaging 31.2 in last 5 games. Line 2 points below his season average.',
-    },
-    {
-      id: '2',
-      rank: 2,
-      player: 'Patrick Mahomes',
-      stat: 'Passing Yards',
-      sport: 'NFL',
-      selection: 'OVER 285.5',
-      ev: 14.5,
-      confidence: 87,
-      book: 'BetMGM',
-      line: 285.5,
-      reasoning: 'Chiefs facing league-worst pass defense. Weather conditions favorable. Mahomes 8-2 on overs this season.',
-    },
-    {
-      id: '3',
-      rank: 3,
-      player: 'Connor McDavid',
-      stat: 'Points',
-      sport: 'NHL',
-      selection: 'OVER 1.5',
-      ev: 11.8,
-      confidence: 83,
-      book: 'DraftKings',
-      line: 1.5,
-      reasoning: 'Hot streak with points in 12 straight games. Opponent allows 3.8 goals per game. Power play clicking at 28%.',
-    },
-  ];
+  const { data: evPicksData, isLoading: evLoading } = useQuery<EVPicksResponse>({
+    queryKey: ['/api/picks/ev', sportApiKey],
+    refetchInterval: 60000,
+  });
 
-  const mockOddsData = [
-    {
-      id: '1',
-      player: 'LeBron James',
-      stat: 'Points',
-      sportsbooks: {
-        FanDuel: { line: 27.5, trend: 'up' as const, isBest: true },
-        DraftKings: { line: 28.0, trend: 'down' as const },
-        BetMGM: { line: 28.5 },
-        PrizePicks: { line: 29.0 },
-      },
-    },
-    {
-      id: '2',
-      player: 'Stephen Curry',
-      stat: 'Points',
-      sportsbooks: {
-        FanDuel: { line: 26.5 },
-        DraftKings: { line: 26.0, isBest: true },
-        BetMGM: { line: 27.0, trend: 'up' as const },
-        PrizePicks: { line: 27.5 },
-      },
-    },
-    {
-      id: '3',
-      player: 'Giannis Antetokounmpo',
-      stat: 'Points',
-      sportsbooks: {
-        FanDuel: { line: 30.5, isBest: true },
-        DraftKings: { line: 31.0 },
-        BetMGM: { line: 31.5, trend: 'down' as const },
-        PrizePicks: { line: 32.0 },
-      },
-    },
-  ];
-
-  const mockParlayLegs = [
-    {
-      id: '1',
-      player: 'LeBron James',
-      stat: 'Points',
-      selection: 'OVER 27.5',
-      odds: -110,
-      book: 'FanDuel',
-    },
-    {
-      id: '2',
-      player: 'Stephen Curry',
-      stat: '3-Pointers',
-      selection: 'OVER 4.5',
-      odds: 125,
-      book: 'DraftKings',
-    },
-  ];
-
-  const sportsbooks = ['FanDuel', 'DraftKings', 'BetMGM', 'PrizePicks'];
+  const { data: topPicksData, isLoading: topPicksLoading } = useQuery<TopPicksResponse>({
+    queryKey: ['/api/picks/top', sportApiKey],
+    refetchInterval: 60000,
+  });
 
   const sports = [
     { id: 'all', label: 'All Sports', icon: '🏆' },
@@ -165,10 +82,66 @@ export default function Dashboard() {
     { id: 'soccer', label: 'Soccer', icon: '⚽' },
   ];
 
-  // Filter picks by selected sport
-  const filteredPicks = selectedSport === 'all' 
-    ? mockPicks 
-    : mockPicks.filter(pick => pick.sport.toLowerCase() === selectedSport);
+  const evPicks = evPicksData?.picks || [];
+  const topPicks = (topPicksData?.picks || []).map(pick => ({
+    id: pick.id,
+    rank: pick.rank,
+    player: pick.selection,
+    stat: pick.market,
+    sport: pick.sport,
+    selection: pick.point ? `${pick.selection} ${pick.point}` : pick.selection,
+    ev: pick.evPercent,
+    confidence: pick.confidence,
+    book: pick.bestBook,
+    line: pick.point || 0,
+    reasoning: pick.reasoning,
+  }));
+
+  const valuePicks = evPicks.map(pick => ({
+    id: pick.id,
+    playerName: pick.selection,
+    statType: pick.market,
+    sport: pick.sport,
+    book1: { name: pick.bestBook, line: pick.bestOdds },
+    book2: { name: pick.worstBook, line: pick.worstOdds },
+    ev: pick.evPercent,
+    recommendation: `${pick.selection} @ ${pick.bestBook}`,
+    timestamp: new Date(pick.commenceTime).toLocaleTimeString(),
+  }));
+
+  const mockOddsData = evPicks.slice(0, 5).map(pick => ({
+    id: pick.id,
+    player: pick.selection,
+    stat: pick.market,
+    sportsbooks: {
+      [pick.bestBook]: { line: pick.bestOdds, isBest: true },
+      [pick.worstBook]: { line: pick.worstOdds },
+    },
+  }));
+
+  const sportsbooks = ['FanDuel', 'DraftKings', 'BetMGM', 'PrizePicks'];
+
+  const handleAddToParlay = (pick: EVPick) => {
+    if (parlayLegs.find(leg => leg.id === pick.id)) return;
+    
+    const newLeg: ParlayLeg = {
+      id: pick.id,
+      player: pick.selection,
+      stat: pick.market,
+      selection: pick.point ? `${pick.selection} ${pick.point}` : pick.selection,
+      odds: pick.bestOdds,
+      book: pick.bestBook,
+    };
+    setParlayLegs([...parlayLegs, newLeg]);
+  };
+
+  const handleRemoveLeg = (id: string) => {
+    setParlayLegs(parlayLegs.filter(leg => leg.id !== id));
+  };
+
+  const handleClearParlay = () => {
+    setParlayLegs([]);
+  };
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -182,6 +155,11 @@ export default function Dashboard() {
                 <Activity className="h-5 w-5 text-success animate-pulse" />
                 <span className="text-sm font-medium">LIVE</span>
               </div>
+              {evPicksData?.lastUpdated && (
+                <span className="text-xs text-muted-foreground">
+                  Updated: {new Date(evPicksData.lastUpdated).toLocaleTimeString()}
+                </span>
+              )}
             </div>
             <ThemeToggle />
           </header>
@@ -216,27 +194,55 @@ export default function Dashboard() {
                   <TabsContent value={selectedSport} className="space-y-6">
                     <div className="grid lg:grid-cols-3 gap-6">
                       <div className="lg:col-span-2 space-y-6">
-                        <TopPicksSection picks={mockTopPicks} />
-
-                        <SportFilterBar />
-
-                        <div>
-                          <h2 className="text-2xl font-bold mb-4">Value Picks</h2>
-                          <div className="grid gap-6">
-                            {filteredPicks.map((pick) => (
-                              <ValuePickCard key={pick.id} pick={pick} />
-                            ))}
+                        {topPicksLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
                           </div>
-                        </div>
+                        ) : (
+                          <TopPicksSection picks={topPicks.slice(0, 3)} />
+                        )}
 
                         <div>
-                          <h2 className="text-2xl font-bold mb-4">Odds Comparison</h2>
-                          <OddsComparisonTable data={mockOddsData} sportsbooks={sportsbooks} />
+                          <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-2xl font-bold">Value Picks</h2>
+                            <Badge variant="outline" className="font-mono">
+                              {evPicks.length} picks found
+                            </Badge>
+                          </div>
+                          {evLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                          ) : valuePicks.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p>No value picks found for {selectedSport === 'all' ? 'any sport' : selectedSport.toUpperCase()}</p>
+                              <p className="text-sm mt-2">Check back when games are live!</p>
+                            </div>
+                          ) : (
+                            <div className="grid gap-6">
+                              {valuePicks.map((pick, index) => (
+                                <div key={pick.id} onClick={() => handleAddToParlay(evPicks[index])} className="cursor-pointer">
+                                  <ValuePickCard pick={pick} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
+
+                        {mockOddsData.length > 0 && (
+                          <div>
+                            <h2 className="text-2xl font-bold mb-4">Odds Comparison</h2>
+                            <OddsComparisonTable data={mockOddsData} sportsbooks={sportsbooks} />
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-6">
-                        <ParlayBuilder legs={mockParlayLegs} />
+                        <ParlayBuilder 
+                          legs={parlayLegs} 
+                          onRemoveLeg={handleRemoveLeg}
+                          onClear={handleClearParlay}
+                        />
 
                         <PaywallCard
                           tierName="Premium"
