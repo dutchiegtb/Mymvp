@@ -64,12 +64,22 @@ export default function Dashboard() {
   const sportApiKey = sportKeyMap[selectedSport] || 'all';
 
   const { data: evPicksData, isLoading: evLoading } = useQuery<EVPicksResponse>({
-    queryKey: ['/api/picks/ev', sportApiKey],
+    queryKey: ['/api/picks/ev', { sport: sportApiKey }],
+    queryFn: async () => {
+      const res = await fetch(`/api/picks/ev?sport=${sportApiKey}`);
+      if (!res.ok) throw new Error('Failed to fetch EV picks');
+      return res.json();
+    },
     refetchInterval: 60000,
   });
 
   const { data: topPicksData, isLoading: topPicksLoading } = useQuery<TopPicksResponse>({
-    queryKey: ['/api/picks/top', sportApiKey],
+    queryKey: ['/api/picks/top', { sport: sportApiKey }],
+    queryFn: async () => {
+      const res = await fetch(`/api/picks/top?sport=${sportApiKey}`);
+      if (!res.ok) throw new Error('Failed to fetch top picks');
+      return res.json();
+    },
     refetchInterval: 60000,
   });
 
