@@ -4,6 +4,8 @@
 
 MVP is a sports betting odds comparison platform that scans 30+ sportsbooks in real-time to identify profitable Expected Value (EV) opportunities. The application helps bettors find line discrepancies across sportsbooks, calculate parlay odds, and make data-driven betting decisions. Built with an "Electric Neon Dark Mode" aesthetic inspired by modern betting platforms like PrizePicks and Sleeper.
 
+**Version 2.0** now includes 40+ sports, Polymarket prediction markets, promo code system, ambassador program, and admin dashboard.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -18,6 +20,12 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with custom dark-mode-first design system using CSS variables
 - **Design System**: Electric neon dark mode with green (#00FF7F), blue (#00CFFF), and gold (#FFCC00) accent colors on deep charcoal backgrounds
 
+### Frontend Pages
+- **Landing** (`/`) - Marketing page with features and pricing
+- **Dashboard** (`/dashboard`) - Main EV picks, top picks, parlay builder
+- **Login** (`/login`) - User sign in
+- **Register** (`/register`) - New account creation with promo code support
+
 ### Backend Architecture
 - **Runtime**: Node.js with Express
 - **Language**: TypeScript with ESM modules
@@ -31,16 +39,20 @@ Preferred communication style: Simple, everyday language.
 - **Migrations**: Managed via drizzle-kit with `db:push` command
 
 ### Key Data Models
-- **Users**: Email-based accounts with Stripe subscription integration (free/tier1/tier2/tier3)
+- **Users**: Email-based accounts with Stripe subscription integration (free/web/premium/elite)
 - **Games**: Sports events with home/away teams and commence times
 - **Odds**: Real-time odds snapshots per sportsbook and market type
 - **Top Picks**: Curated EV picks with confidence scores and reasoning
 - **User Parlays**: Saved parlay combinations with calculated payouts
+- **Promo Codes**: Discount codes with percentage/fixed/trial_days types
+- **Ambassadors**: Referral program with commission tracking
+- **Bot Users/Alerts**: Discord/Telegram integration (schema ready)
 
 ### External Services Integration
 - **The Odds API**: Primary data source for real-time odds from 30+ sportsbooks
+- **Polymarket API**: Prediction markets data (politics, economics, entertainment)
 - **Stripe**: Payment processing for subscription tiers (customer ID stored on user)
-- **Supported Sports**: NBA, NFL, MLB, NHL, Soccer (defined in shared schema)
+- **Supported Sports**: 40+ sports across 10 categories (see SPORTS_BY_CATEGORY in schema)
 
 ### Caching Strategy
 - In-memory cache for odds data with 5-minute TTL
