@@ -117,8 +117,12 @@ export default function Landing() {
 
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <Button variant="outline" data-testid="button-sign-in">Sign In</Button>
-              <Button data-testid="button-get-started">Get Started</Button>
+              <Link href="/login">
+                <Button variant="outline" data-testid="button-sign-in">Sign In</Button>
+              </Link>
+              <Link href="/register">
+                <Button data-testid="button-get-started">Get Started</Button>
+              </Link>
             </div>
           </div>
         </div>

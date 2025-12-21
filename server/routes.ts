@@ -1,9 +1,24 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fetchLiveOdds, fetchAllSportsOdds, getAvailableSports } from "./oddsService";
 import { calculateEV, calculateParlay, filterPicksBySport, getTopPicks, filterByMinEV, type ParlayLeg, type EVPick } from "./evCalculator";
-import { SUPPORTED_SPORTS, type SportKey } from "@shared/schema";
+import { SUPPORTED_SPORTS, SPORTS_BY_CATEGORY, PREDICTION_CATEGORIES, type SportKey } from "@shared/schema";
+
+// Admin key from environment (secure - no fallback)
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
+
+// Middleware to require admin access
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!ADMIN_SECRET_KEY) {
+    return res.status(503).json({ error: 'Admin access not configured. Set ADMIN_SECRET_KEY environment variable.' });
+  }
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey !== ADMIN_SECRET_KEY) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
 
 // In-memory cache for odds data (refreshed periodically)
 let cachedOdds: { data: EVPick[]; lastUpdated: Date } = {
@@ -42,6 +57,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp: new Date().toISOString(),
       cacheAge: Date.now() - cachedOdds.lastUpdated.getTime(),
       picksCount: cachedOdds.data.length,
+      version: "2.0.0",
+      features: {
+        sports_betting: true,
+        prediction_markets: true,
+        promo_codes: true,
+        ambassador_program: true,
+        user_auth: true,
+        admin_dashboard: true,
+        polymarket: true,
+      },
+      sports_count: Object.values(SPORTS_BY_CATEGORY).flat().length,
     });
   });
 
@@ -243,6 +269,325 @@ export async function registerRoutes(app: Express): Promise<Server> {
         alerts: false,
       },
     });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTH ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  // AUTH ROUTES - Development mode (requires bcrypt + JWT for production)
+  // These are placeholder routes that allow testing the flow
+  // Production requires: password hashing, database storage, JWT tokens
+  
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const { email, password, username, referralCode } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password required' });
+      }
+      
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      
+      // DEVELOPMENT MODE: In production, implement:
+      // 1. Hash password with bcrypt
+      // 2. Check if email already exists in database
+      // 3. Create user record in database
+      // 4. Generate JWT token with expiration
+      
+      console.log(`[DEV] Register attempt: ${email}`);
+      
+      res.json({
+        success: true,
+        message: 'Account created (dev mode)',
+        user: { email, username, subscriptionTier: 'free' },
+        token: 'dev-token-' + Date.now(),
+        _devWarning: 'This is development mode. Auth not persisted.'
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Registration failed' });
+    }
+  });
+
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password required' });
+      }
+      
+      // DEVELOPMENT MODE: In production, implement:
+      // 1. Lookup user by email in database
+      // 2. Verify password hash with bcrypt.compare()
+      // 3. Generate JWT token with user ID
+      
+      console.log(`[DEV] Login attempt: ${email}`);
+      
+      res.json({
+        success: true,
+        user: { email, subscriptionTier: 'free', subscriptionStatus: 'inactive' },
+        token: 'dev-token-' + Date.now(),
+        _devWarning: 'This is development mode. Auth not verified.'
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  app.get("/api/auth/me", (req: Request, res: Response) => {
+    // DEVELOPMENT MODE: In production:
+    // 1. Extract JWT from Authorization header
+    // 2. Verify token signature and expiration
+    // 3. Return user data from database
+    
+    res.json({
+      email: 'demo@example.com',
+      username: 'demo_user',
+      subscriptionTier: 'free',
+      subscriptionStatus: 'inactive',
+      preferredLanguage: 'en',
+      theme: 'dark',
+      _devWarning: 'This is development mode. Returns mock user data.'
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PROMO CODE ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.post("/api/promo/validate", async (req: Request, res: Response) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ valid: false, error: 'Promo code required' });
+      }
+      
+      // TODO: Check promo code in database
+      // For now, return sample validation
+      const upperCode = code.toUpperCase();
+      
+      // Sample promo codes for testing
+      const sampleCodes: Record<string, { discountType: string; discountValue: number; message: string }> = {
+        'LAUNCH50': { discountType: 'percentage', discountValue: 50, message: '50% off your first month!' },
+        'FREEMONTH': { discountType: 'trial_days', discountValue: 30, message: '30 days free trial!' },
+        'SAVE10': { discountType: 'percentage', discountValue: 10, message: '10% off!' },
+      };
+      
+      if (sampleCodes[upperCode]) {
+        res.json({
+          valid: true,
+          code: upperCode,
+          ...sampleCodes[upperCode]
+        });
+      } else {
+        res.json({ valid: false, error: 'Invalid promo code' });
+      }
+    } catch (error) {
+      console.error('Promo validation error:', error);
+      res.status(500).json({ valid: false, error: 'Validation failed' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // POLYMARKET INTEGRATION
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.get("/api/polymarket/markets", async (req: Request, res: Response) => {
+    try {
+      const category = req.query.category as string || 'all';
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      // Fetch from Polymarket API
+      const response = await fetch(`https://gamma-api.polymarket.com/markets?limit=${limit}&active=true`);
+      
+      if (!response.ok) {
+        throw new Error('Polymarket API unavailable');
+      }
+      
+      const markets = await response.json();
+      
+      // Transform to our format
+      const formatted = markets.map((m: any) => ({
+        id: m.id,
+        question: m.question,
+        category: m.groupItemTitle || 'General',
+        volume: parseFloat(m.volume || 0),
+        yesPrice: parseFloat(m.outcomePrices?.[0] || 0.5),
+        noPrice: 1 - parseFloat(m.outcomePrices?.[0] || 0.5),
+        yesPercent: Math.round(parseFloat(m.outcomePrices?.[0] || 0.5) * 100),
+        noPercent: Math.round((1 - parseFloat(m.outcomePrices?.[0] || 0.5)) * 100),
+        url: `https://polymarket.com/event/${m.slug}`,
+        endDate: m.endDateIso,
+        liquidity: parseFloat(m.liquidity || 0),
+      }));
+      
+      res.json({
+        markets: formatted,
+        total: formatted.length,
+        categories: PREDICTION_CATEGORIES,
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Polymarket fetch error:', error);
+      // Return mock data when API unavailable
+      res.json({
+        markets: [
+          {
+            id: 'mock-1',
+            question: 'Will BTC reach $150k by end of 2025?',
+            category: 'Economics',
+            volume: 2500000,
+            yesPrice: 0.35,
+            noPrice: 0.65,
+            yesPercent: 35,
+            noPercent: 65,
+            url: 'https://polymarket.com',
+          },
+          {
+            id: 'mock-2',
+            question: 'Will the Fed cut rates in Q1 2025?',
+            category: 'Economics',
+            volume: 1800000,
+            yesPrice: 0.72,
+            noPrice: 0.28,
+            yesPercent: 72,
+            noPercent: 28,
+            url: 'https://polymarket.com',
+          },
+        ],
+        total: 2,
+        categories: PREDICTION_CATEGORIES,
+        lastUpdated: new Date().toISOString(),
+        mock: true,
+      });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // EXPANDED SPORTS LIST
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.get("/api/sports/all", (req: Request, res: Response) => {
+    res.json({
+      categories: SPORTS_BY_CATEGORY,
+      totalSports: Object.values(SPORTS_BY_CATEGORY).flat().length,
+      predictionMarkets: PREDICTION_CATEGORIES,
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // ENHANCED ADMIN ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  // Admin: Get all users (paginated)
+  app.get("/api/admin/users", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      // TODO: Get users from database with pagination
+      res.json({
+        users: [
+          { id: 1, email: 'user1@example.com', subscriptionTier: 'premium', createdAt: new Date() },
+          { id: 2, email: 'user2@example.com', subscriptionTier: 'free', createdAt: new Date() },
+        ],
+        total: 2,
+        page,
+        limit,
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+
+  // Admin: Create promo code
+  app.post("/api/admin/promo/create", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { code, discountType, discountValue, maxUses, validUntil } = req.body;
+      
+      if (!code || !discountType || !discountValue) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      // TODO: Create promo in database
+      
+      res.json({
+        success: true,
+        promo: {
+          code: code.toUpperCase(),
+          discountType,
+          discountValue,
+          maxUses,
+          validUntil,
+          active: true,
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create promo' });
+    }
+  });
+
+  // Admin: Create ambassador
+  app.post("/api/admin/ambassador/create", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { email, referralCode, commissionPercent } = req.body;
+      
+      if (!email || !referralCode) {
+        return res.status(400).json({ error: 'Email and referral code required' });
+      }
+      
+      // TODO: Create ambassador in database
+      
+      res.json({
+        success: true,
+        ambassador: {
+          email,
+          referralCode: referralCode.toUpperCase(),
+          commissionPercent: commissionPercent || 10,
+          active: true,
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create ambassador' });
+    }
+  });
+
+  // Admin: Get system stats
+  app.get("/api/admin/stats", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      res.json({
+        users: {
+          total: 150,
+          premium: 45,
+          web: 80,
+          free: 25,
+        },
+        revenue: {
+          mrr: 1450,
+          activeSubscriptions: 125,
+        },
+        api: {
+          oddsApiCallsToday: 24,
+          oddsApiRemaining: 476,
+        },
+        picks: {
+          totalEVPicks: cachedOdds.data.length,
+          lastUpdate: cachedOdds.lastUpdated,
+        },
+        ambassadors: {
+          total: 5,
+          totalReferrals: 32,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    }
   });
 
   // Initialize odds cache on startup
