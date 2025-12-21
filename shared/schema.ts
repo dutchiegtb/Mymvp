@@ -8,11 +8,16 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   username: varchar("username", { length: 100 }),
+  passwordHash: varchar("password_hash", { length: 255 }),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   subscriptionTier: varchar("subscription_tier", { length: 50 }).default("free"),
   subscriptionStatus: varchar("subscription_status", { length: 50 }).default("inactive"),
   subscriptionStartDate: timestamp("subscription_start_date"),
   subscriptionEndDate: timestamp("subscription_end_date"),
+  preferredLanguage: varchar("preferred_language", { length: 10 }).default("en"),
+  theme: varchar("theme", { length: 20 }).default("dark"),
+  referredByCode: varchar("referred_by_code", { length: 50 }),
+  isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -120,6 +125,57 @@ export const oddsAudit = pgTable("odds_audit", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Promo Codes table
+export const promoCodes = pgTable("promo_codes", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  discountType: varchar("discount_type", { length: 20 }).notNull(), // 'percentage' | 'fixed' | 'trial_days'
+  discountValue: decimal("discount_value").notNull(),
+  maxUses: integer("max_uses"),
+  currentUses: integer("current_uses").default(0),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validUntil: timestamp("valid_until"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_promo_codes_code").on(table.code),
+]);
+
+// Promo Code Redemptions table
+export const promoRedemptions = pgTable("promo_redemptions", {
+  id: serial("id").primaryKey(),
+  promoCodeId: integer("promo_code_id").references(() => promoCodes.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  redeemedAt: timestamp("redeemed_at").defaultNow(),
+});
+
+// Ambassadors table
+export const ambassadors = pgTable("ambassadors", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  referralCode: varchar("referral_code", { length: 50 }).notNull().unique(),
+  commissionPercent: decimal("commission_percent").default("10"),
+  totalReferrals: integer("total_referrals").default(0),
+  totalEarnings: decimal("total_earnings").default("0"),
+  payoutThreshold: decimal("payout_threshold").default("50"),
+  pendingPayout: decimal("pending_payout").default("0"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_ambassadors_referral_code").on(table.referralCode),
+]);
+
+// Ambassador Referrals table
+export const ambassadorReferrals = pgTable("ambassador_referrals", {
+  id: serial("id").primaryKey(),
+  ambassadorId: integer("ambassador_id").references(() => ambassadors.id, { onDelete: "cascade" }),
+  referredUserId: integer("referred_user_id").references(() => users.id, { onDelete: "cascade" }),
+  subscriptionAmount: decimal("subscription_amount"),
+  commissionEarned: decimal("commission_earned"),
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending' | 'paid' | 'cancelled'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
@@ -128,6 +184,8 @@ export const insertTopPickSchema = createInsertSchema(topPicks).omit({ id: true,
 export const insertParlaySchema = createInsertSchema(userParlays).omit({ id: true, createdAt: true });
 export const insertBotUserSchema = createInsertSchema(botUsers).omit({ id: true, createdAt: true });
 export const insertBotAlertSchema = createInsertSchema(botAlerts).omit({ id: true, createdAt: true });
+export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, createdAt: true, currentUses: true });
+export const insertAmbassadorSchema = createInsertSchema(ambassadors).omit({ id: true, createdAt: true, totalReferrals: true, totalEarnings: true, pendingPayout: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -144,11 +202,80 @@ export type BotUser = typeof botUsers.$inferSelect;
 export type InsertBotUser = z.infer<typeof insertBotUserSchema>;
 export type BotAlert = typeof botAlerts.$inferSelect;
 export type InsertBotAlert = z.infer<typeof insertBotAlertSchema>;
+export type PromoCode = typeof promoCodes.$inferSelect;
+export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type Ambassador = typeof ambassadors.$inferSelect;
+export type InsertAmbassador = z.infer<typeof insertAmbassadorSchema>;
 
 // Subscription tiers
-export type SubscriptionTier = "free" | "pro" | "premium" | "elite";
+export type SubscriptionTier = "free" | "web" | "premium" | "elite";
 
-// Sports configuration
+// Sports configuration - 40+ sports
+export const SPORTS_BY_CATEGORY = {
+  basketball: [
+    { key: "basketball_nba", name: "NBA", active: true },
+    { key: "basketball_ncaab", name: "NCAA Basketball", active: true },
+    { key: "basketball_euroleague", name: "EuroLeague", active: true },
+    { key: "basketball_wnba", name: "WNBA", active: true },
+  ],
+  football: [
+    { key: "americanfootball_nfl", name: "NFL", active: true },
+    { key: "americanfootball_ncaaf", name: "NCAA Football", active: true },
+    { key: "americanfootball_cfl", name: "CFL", active: true },
+    { key: "americanfootball_xfl", name: "XFL", active: true },
+  ],
+  baseball: [
+    { key: "baseball_mlb", name: "MLB", active: true },
+    { key: "baseball_ncaa", name: "NCAA Baseball", active: true },
+    { key: "baseball_npb", name: "NPB (Japan)", active: true },
+    { key: "baseball_kbo", name: "KBO (Korea)", active: true },
+  ],
+  hockey: [
+    { key: "icehockey_nhl", name: "NHL", active: true },
+    { key: "icehockey_ahl", name: "AHL", active: true },
+    { key: "icehockey_khl", name: "KHL", active: true },
+    { key: "icehockey_shl", name: "SHL", active: true },
+  ],
+  soccer: [
+    { key: "soccer_epl", name: "Premier League", active: true },
+    { key: "soccer_spain_la_liga", name: "La Liga", active: true },
+    { key: "soccer_italy_serie_a", name: "Serie A", active: true },
+    { key: "soccer_germany_bundesliga", name: "Bundesliga", active: true },
+    { key: "soccer_france_ligue_one", name: "Ligue 1", active: true },
+    { key: "soccer_uefa_champs_league", name: "Champions League", active: true },
+    { key: "soccer_mls", name: "MLS", active: true },
+    { key: "soccer_brazil_serie_a", name: "Brazil Serie A", active: true },
+  ],
+  combat: [
+    { key: "mma_mixed_martial_arts", name: "UFC/MMA", active: true },
+    { key: "boxing_boxing", name: "Boxing", active: true },
+  ],
+  tennis: [
+    { key: "tennis_atp_us_open", name: "US Open", active: true },
+    { key: "tennis_atp_wimbledon", name: "Wimbledon", active: true },
+    { key: "tennis_atp_french_open", name: "French Open", active: true },
+    { key: "tennis_atp_aus_open", name: "Australian Open", active: true },
+  ],
+  golf: [
+    { key: "golf_pga", name: "PGA Tour", active: true },
+    { key: "golf_masters", name: "Masters", active: true },
+  ],
+  esports: [
+    { key: "esports_lol", name: "League of Legends", active: true },
+    { key: "esports_csgo", name: "CS:GO / CS2", active: true },
+    { key: "esports_dota2", name: "Dota 2", active: true },
+    { key: "esports_valorant", name: "Valorant", active: true },
+    { key: "esports_cod", name: "Call of Duty", active: true },
+  ],
+  other: [
+    { key: "cricket_ipl", name: "IPL Cricket", active: true },
+    { key: "rugby_league", name: "Rugby League", active: true },
+    { key: "aussie_rules", name: "AFL", active: true },
+    { key: "table_tennis", name: "Table Tennis", active: true },
+  ],
+} as const;
+
+// Legacy supported sports (for backwards compatibility)
 export const SUPPORTED_SPORTS = [
   { key: "basketball_nba", name: "NBA", emoji: "🏀" },
   { key: "americanfootball_nfl", name: "NFL", emoji: "🏈" },
@@ -158,3 +285,12 @@ export const SUPPORTED_SPORTS = [
 ] as const;
 
 export type SportKey = typeof SUPPORTED_SPORTS[number]["key"];
+
+// Prediction market categories (Polymarket integration)
+export const PREDICTION_CATEGORIES = [
+  { key: "politics", name: "Politics & Elections" },
+  { key: "economics", name: "Economics & Finance" },
+  { key: "entertainment", name: "Entertainment & Culture" },
+  { key: "science", name: "Science & Technology" },
+  { key: "sports_events", name: "Sports Events" },
+] as const;
