@@ -590,6 +590,257 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ═══════════════════════════════════════════════════════════════
+  // GAMIFICATION ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  // Get user stats (levels, XP, streaks)
+  app.get("/api/user/stats", (req: Request, res: Response) => {
+    // Demo data - in production, fetch from database based on authenticated user
+    res.json({
+      level: 12,
+      xp: 2340,
+      xpToNextLevel: 3000,
+      streak: {
+        current: 7,
+        longest: 23,
+        rewardAt: 10, // Next reward at 10 days
+      },
+      stats: {
+        totalWins: 127,
+        totalLosses: 38,
+        winRate: 77,
+        totalProfit: 2847,
+      },
+      badges: [
+        { id: 'first_win', name: 'First Win', icon: '1', earned: true, earnedAt: '2024-01-05' },
+        { id: 'week_streak', name: '7 Day Streak', icon: '2', earned: true, earnedAt: '2024-01-12' },
+        { id: 'high_roller', name: 'High Roller', icon: '3', earned: false, progress: 75 },
+        { id: 'parlay_master', name: 'Parlay Master', icon: '4', earned: false, progress: 40 },
+        { id: 'sharp_eye', name: 'Sharp Eye', icon: '5', earned: true, earnedAt: '2024-01-18' },
+      ],
+      achievements: [
+        { name: '10 Wins in a Row', progress: 7, total: 10, reward: '500 XP' },
+        { name: 'Follow 5 Users', progress: 2, total: 5, reward: 'Social Badge' },
+        { name: 'Hit a 5-Leg Parlay', progress: 0, total: 1, reward: 'Parlay Master Badge' },
+      ],
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // LEADERBOARD ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.get("/api/leaderboard", (req: Request, res: Response) => {
+    const timeframe = req.query.timeframe as string || 'weekly';
+    
+    // Demo leaderboard data
+    const leaderboards = {
+      weekly: [
+        { rank: 1, username: 'SharpBettor', winRate: 89, profit: 4200, level: 28, streak: 12 },
+        { rank: 2, username: 'ValueHunter', winRate: 85, profit: 3100, level: 24, streak: 8 },
+        { rank: 3, username: 'BetMaster', winRate: 82, profit: 2800, level: 21, streak: 5 },
+        { rank: 4, username: 'OddsKing', winRate: 80, profit: 2400, level: 19, streak: 3 },
+        { rank: 5, username: 'EVHero', winRate: 78, profit: 2100, level: 17, streak: 6 },
+        { rank: 6, username: 'ParlayPro', winRate: 76, profit: 1800, level: 15, streak: 4 },
+        { rank: 7, username: 'LineWatcher', winRate: 74, profit: 1500, level: 14, streak: 2 },
+        { rank: 8, username: 'MoneyMaker', winRate: 72, profit: 1200, level: 12, streak: 1 },
+        { rank: 9, username: 'BetWise', winRate: 70, profit: 900, level: 10, streak: 0 },
+        { rank: 10, username: 'WinChaser', winRate: 68, profit: 600, level: 8, streak: 1 },
+      ],
+      monthly: [
+        { rank: 1, username: 'ProPicks', winRate: 91, profit: 12500, level: 35, streak: 18 },
+        { rank: 2, username: 'SharpBettor', winRate: 88, profit: 10200, level: 28, streak: 12 },
+        { rank: 3, username: 'ValueHunter', winRate: 86, profit: 8800, level: 24, streak: 8 },
+      ],
+      allTime: [
+        { rank: 1, username: 'Legend', winRate: 88, profit: 45000, level: 50, streak: 0 },
+        { rank: 2, username: 'ProPicks', winRate: 87, profit: 38000, level: 45, streak: 18 },
+        { rank: 3, username: 'SharpBettor', winRate: 85, profit: 32000, level: 28, streak: 12 },
+      ],
+    };
+    
+    res.json({
+      timeframe,
+      leaderboard: leaderboards[timeframe as keyof typeof leaderboards] || leaderboards.weekly,
+      userRank: { rank: 156, username: 'You', winRate: 65, profit: 450, level: 12 },
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // SOCIAL FEED ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.get("/api/social/feed", (req: Request, res: Response) => {
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    // Demo social feed data
+    const feed = [
+      {
+        id: '1',
+        username: 'SharpBettor',
+        level: 28,
+        action: 'parlay_win',
+        content: 'Just hit a 4-leg parlay!',
+        metadata: {
+          legs: 4,
+          odds: '+850',
+          profit: 850,
+        },
+        likes: 89,
+        comments: 15,
+        timestamp: new Date(Date.now() - 1800000).toISOString(),
+      },
+      {
+        id: '2',
+        username: 'ValueHunter',
+        level: 24,
+        action: 'big_win',
+        content: 'Lakers -3.5 cashed!',
+        metadata: {
+          game: 'Lakers vs Warriors',
+          selection: 'Lakers -3.5',
+          ev: 12.5,
+          profit: 200,
+        },
+        likes: 45,
+        comments: 8,
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+      },
+      {
+        id: '3',
+        username: 'BetMaster',
+        level: 21,
+        action: 'streak_milestone',
+        content: 'Just reached a 10-day streak!',
+        metadata: {
+          streak: 10,
+          badge: '10 Day Streak',
+        },
+        likes: 67,
+        comments: 12,
+        timestamp: new Date(Date.now() - 7200000).toISOString(),
+      },
+      {
+        id: '4',
+        username: 'ParlayPro',
+        level: 15,
+        action: 'pick_shared',
+        content: 'Loving this Chiefs pick tonight',
+        metadata: {
+          game: 'Chiefs vs Bills',
+          selection: 'Chiefs ML',
+          odds: '+150',
+          ev: 8.3,
+        },
+        likes: 23,
+        comments: 5,
+        timestamp: new Date(Date.now() - 10800000).toISOString(),
+      },
+    ];
+    
+    res.json({
+      feed: feed.slice(0, limit),
+      total: feed.length,
+    });
+  });
+
+  // Like a post
+  app.post("/api/social/like/:postId", (req: Request, res: Response) => {
+    const { postId } = req.params;
+    // In production: Toggle like in database
+    res.json({ success: true, postId, liked: true });
+  });
+
+  // Follow a user
+  app.post("/api/social/follow/:userId", (req: Request, res: Response) => {
+    const { userId } = req.params;
+    // In production: Create follow relationship in database
+    res.json({ success: true, userId, following: true });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PROFIT TRACKER ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.get("/api/user/profit-tracker", (req: Request, res: Response) => {
+    // Demo profit tracker data - shows "what if" you bet on our picks
+    res.json({
+      summary: {
+        totalPotentialProfit: 2847,
+        totalPicksTracked: 165,
+        wins: 127,
+        losses: 38,
+        winRate: 77,
+        avgBetAmount: 100,
+      },
+      bestDay: { date: '2024-01-15', profit: 640, picks: 8 },
+      worstDay: { date: '2024-01-08', profit: -200, picks: 5 },
+      currentMonth: {
+        profit: 2847,
+        wins: 35,
+        losses: 12,
+        roi: 24.5,
+      },
+      recentPicks: [
+        { date: '2024-01-22', game: 'Lakers vs Warriors', selection: 'Lakers -3.5', result: 'win', profit: 91 },
+        { date: '2024-01-22', game: 'Chiefs vs Bills', selection: 'Chiefs ML', result: 'win', profit: 150 },
+        { date: '2024-01-21', game: 'Celtics vs Heat', selection: 'Celtics -5.5', result: 'loss', profit: -100 },
+        { date: '2024-01-21', game: '49ers vs Eagles', selection: 'Over 45.5', result: 'win', profit: 91 },
+        { date: '2024-01-20', game: 'Bucks vs Knicks', selection: 'Bucks ML', result: 'win', profit: 120 },
+      ],
+      chartData: [
+        { date: '2024-01-16', profit: 150, cumulative: 150 },
+        { date: '2024-01-17', profit: 230, cumulative: 380 },
+        { date: '2024-01-18', profit: -100, cumulative: 280 },
+        { date: '2024-01-19', profit: 180, cumulative: 460 },
+        { date: '2024-01-20', profit: 320, cumulative: 780 },
+        { date: '2024-01-21', profit: -50, cumulative: 730 },
+        { date: '2024-01-22', profit: 241, cumulative: 971 },
+      ],
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // SHARE GRAPHICS ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  
+  app.post("/api/share/generate", async (req: Request, res: Response) => {
+    const { type, data } = req.body;
+    
+    // In production: Generate actual images using canvas or an image service
+    // For now, return shareable text and mock URLs
+    
+    let shareText = '';
+    switch (type) {
+      case 'parlay_win':
+        shareText = `Just hit a ${data.legs}-leg parlay (${data.odds}) using MVP! Turned $${data.stake} into $${data.payout}`;
+        break;
+      case 'profit_summary':
+        shareText = `This month with MVP: ${data.winRate}% win rate, +$${data.profit} profit. Join the winning team!`;
+        break;
+      case 'streak':
+        shareText = `${data.days}-day winning streak on MVP! Who else is riding the wave?`;
+        break;
+      case 'pick':
+        shareText = `My pick: ${data.selection} | ${data.odds} | ${data.ev}% EV. Found on MVP.`;
+        break;
+      default:
+        shareText = 'Check out MVP - the smartest way to find value bets!';
+    }
+    
+    res.json({
+      success: true,
+      shareText,
+      hashtags: '#MVP #SportsBetting #ValueBets #Parlay',
+      urls: {
+        twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,
+        copy: shareText,
+      },
+      disclaimer: 'For entertainment purposes only. Gamble responsibly.',
+    });
+  });
+
   // Initialize odds cache on startup
   refreshOddsCache();
   
