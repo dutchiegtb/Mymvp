@@ -10,29 +10,53 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, TrendingUp, Bell, MessageSquare, DollarSign, Settings, User } from "lucide-react";
-import { Link } from "wouter";
+import { Home, TrendingUp, Bell, MessageSquare, DollarSign, Settings, User, Users, Wallet } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import SubscriptionBadge, { SubscriptionTier } from "./SubscriptionBadge";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Top Picks", url: "/picks", icon: TrendingUp },
-  { title: "Alerts", url: "/alerts", icon: Bell },
-  { title: "Discord Bot", url: "/discord", icon: MessageSquare },
-  { title: "Pricing", url: "/pricing", icon: DollarSign },
+  { title: "Top Picks", url: "/dashboard#picks", icon: TrendingUp },
+  { title: "Social", url: "/dashboard#social", icon: Users },
+  { title: "Profits", url: "/dashboard#profits", icon: Wallet },
+  { title: "Pricing", url: "/#pricing", icon: DollarSign },
 ];
 
 const bottomItems = [
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "Account", url: "/account", icon: User },
+  { title: "Settings", url: "/dashboard#settings", icon: Settings },
+  { title: "Account", url: "/login", icon: User },
 ];
 
 interface AppSidebarProps {
   userTier?: SubscriptionTier;
+  onTabChange?: (tab: string) => void;
+  activeTab?: string;
 }
 
-export default function AppSidebar({ userTier = "free" }: AppSidebarProps) {
+export default function AppSidebar({ userTier = "free", onTabChange, activeTab }: AppSidebarProps) {
+  const [location] = useLocation();
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    if (item.url.includes('#')) {
+      const hash = item.url.split('#')[1];
+      if (onTabChange && hash) {
+        onTabChange(hash);
+      }
+    }
+  };
+
+  const isActive = (item: typeof navItems[0]) => {
+    if (item.url === '/dashboard' && !item.url.includes('#')) {
+      return location === '/dashboard' && activeTab === 'picks';
+    }
+    if (item.url.includes('#')) {
+      const hash = item.url.split('#')[1];
+      return location === '/dashboard' && activeTab === hash;
+    }
+    return false;
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -53,8 +77,12 @@ export default function AppSidebar({ userTier = "free" }: AppSidebarProps) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive(item)}
+                    onClick={() => handleNavClick(item)}
+                  >
+                    <Link href={item.url.includes('#') ? '/dashboard' : item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -71,9 +99,11 @@ export default function AppSidebar({ userTier = "free" }: AppSidebarProps) {
               <div className="space-y-2 p-4 rounded-md bg-primary/10 border border-primary/20">
                 <p className="font-semibold text-sm">Upgrade to Pro</p>
                 <p className="text-xs text-muted-foreground">Get unlimited access to all props and EV rankings</p>
-                <Button size="sm" className="w-full mt-2" data-testid="button-upgrade-sidebar">
-                  Upgrade Now
-                </Button>
+                <Link href="/#pricing">
+                  <Button size="sm" className="w-full mt-2" data-testid="button-upgrade-sidebar">
+                    Upgrade Now
+                  </Button>
+                </Link>
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -83,8 +113,11 @@ export default function AppSidebar({ userTier = "free" }: AppSidebarProps) {
         <SidebarMenu>
           {bottomItems.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild>
-                <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`}>
+              <SidebarMenuButton 
+                asChild
+                onClick={() => handleNavClick(item)}
+              >
+                <Link href={item.url.includes('#') ? '/dashboard' : item.url} data-testid={`link-${item.title.toLowerCase()}`}>
                   <item.icon className="h-4 w-4" />
                   <span>{item.title}</span>
                 </Link>
