@@ -176,6 +176,116 @@ export const ambassadorReferrals = pgTable("ambassador_referrals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ═══════════════════════════════════════════════════════════════
+// GAMIFICATION TABLES
+// ═══════════════════════════════════════════════════════════════
+
+// User Stats (levels, XP, streaks)
+export const userStats = pgTable("user_stats", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).unique(),
+  level: integer("level").default(1),
+  xp: integer("xp").default(0),
+  xpToNextLevel: integer("xp_to_next_level").default(1000),
+  currentStreak: integer("current_streak").default(0),
+  longestStreak: integer("longest_streak").default(0),
+  lastActiveDate: timestamp("last_active_date"),
+  totalWins: integer("total_wins").default(0),
+  totalLosses: integer("total_losses").default(0),
+  totalProfit: decimal("total_profit").default("0"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Badges/Achievements
+export const badges = pgTable("badges", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  icon: varchar("icon", { length: 10 }), // Emoji or icon code
+  category: varchar("category", { length: 50 }), // 'streak', 'wins', 'social', 'special'
+  requirement: integer("requirement"), // e.g., 7 for "7-day streak"
+  xpReward: integer("xp_reward").default(100),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Badges (earned badges)
+export const userBadges = pgTable("user_badges", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  badgeId: integer("badge_id").references(() => badges.id, { onDelete: "cascade" }),
+  earnedAt: timestamp("earned_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_user_badges_unique").on(table.userId, table.badgeId),
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SOCIAL NETWORK TABLES
+// ═══════════════════════════════════════════════════════════════
+
+// User Follows
+export const userFollows = pgTable("user_follows", {
+  id: serial("id").primaryKey(),
+  followerId: integer("follower_id").references(() => users.id, { onDelete: "cascade" }),
+  followingId: integer("following_id").references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_user_follows_unique").on(table.followerId, table.followingId),
+]);
+
+// Social Feed Posts
+export const socialPosts = pgTable("social_posts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  postType: varchar("post_type", { length: 50 }).notNull(), // 'parlay_win', 'big_win', 'streak_milestone', 'badge_earned', 'pick_shared'
+  content: text("content"),
+  metadata: jsonb("metadata"), // Pick details, parlay info, etc.
+  likesCount: integer("likes_count").default(0),
+  commentsCount: integer("comments_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_social_posts_user").on(table.userId),
+  index("idx_social_posts_created").on(table.createdAt),
+]);
+
+// Social Post Likes
+export const postLikes = pgTable("post_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => socialPosts.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_post_likes_unique").on(table.postId, table.userId),
+]);
+
+// Social Post Comments
+export const postComments = pgTable("post_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => socialPosts.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PROFIT TRACKER TABLES
+// ═══════════════════════════════════════════════════════════════
+
+// Tracked Picks (for "what if" profit tracking)
+export const trackedPicks = pgTable("tracked_picks", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  pickId: varchar("pick_id", { length: 100 }),
+  game: varchar("game", { length: 255 }),
+  selection: varchar("selection", { length: 255 }),
+  odds: decimal("odds"),
+  betAmount: decimal("bet_amount").default("100"),
+  result: varchar("result", { length: 20 }), // 'win', 'loss', 'push', 'pending'
+  profit: decimal("profit"),
+  trackedAt: timestamp("tracked_at").defaultNow(),
+  settledAt: timestamp("settled_at"),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
@@ -186,6 +296,10 @@ export const insertBotUserSchema = createInsertSchema(botUsers).omit({ id: true,
 export const insertBotAlertSchema = createInsertSchema(botAlerts).omit({ id: true, createdAt: true });
 export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, createdAt: true, currentUses: true });
 export const insertAmbassadorSchema = createInsertSchema(ambassadors).omit({ id: true, createdAt: true, totalReferrals: true, totalEarnings: true, pendingPayout: true });
+export const insertUserStatsSchema = createInsertSchema(userStats).omit({ id: true, updatedAt: true });
+export const insertBadgeSchema = createInsertSchema(badges).omit({ id: true, createdAt: true });
+export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, likesCount: true, commentsCount: true });
+export const insertTrackedPickSchema = createInsertSchema(trackedPicks).omit({ id: true, trackedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -206,6 +320,14 @@ export type PromoCode = typeof promoCodes.$inferSelect;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
 export type Ambassador = typeof ambassadors.$inferSelect;
 export type InsertAmbassador = z.infer<typeof insertAmbassadorSchema>;
+export type UserStat = typeof userStats.$inferSelect;
+export type InsertUserStat = z.infer<typeof insertUserStatsSchema>;
+export type Badge = typeof badges.$inferSelect;
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type SocialPost = typeof socialPosts.$inferSelect;
+export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
+export type TrackedPick = typeof trackedPicks.$inferSelect;
+export type InsertTrackedPick = z.infer<typeof insertTrackedPickSchema>;
 
 // Subscription tiers
 export type SubscriptionTier = "free" | "web" | "premium" | "elite";
