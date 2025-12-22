@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap } from "lucide-react";
+import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ParlayLeg } from "@/components/ParlayBuilder";
 
@@ -155,13 +155,25 @@ export default function Dashboard() {
     queryKey: ['/api/user/profit-tracker'],
   });
 
+  const SportIcon = ({ sport }: { sport: string }) => {
+    switch (sport) {
+      case 'all': return <Trophy className="h-4 w-4" />;
+      case 'nba': return <Dribbble className="h-4 w-4" />;
+      case 'nfl': return <Hexagon className="h-4 w-4" />;
+      case 'mlb': return <CircleDot className="h-4 w-4" />;
+      case 'nhl': return <Disc className="h-4 w-4" />;
+      case 'soccer': return <Target className="h-4 w-4" />;
+      default: return <Trophy className="h-4 w-4" />;
+    }
+  };
+
   const sports = [
-    { id: 'all', label: 'All Sports', icon: '🏆' },
-    { id: 'nba', label: 'NBA', icon: '🏀' },
-    { id: 'nfl', label: 'NFL', icon: '🏈' },
-    { id: 'mlb', label: 'MLB', icon: '⚾' },
-    { id: 'nhl', label: 'NHL', icon: '🏒' },
-    { id: 'soccer', label: 'Soccer', icon: '⚽' },
+    { id: 'all', label: 'All Sports' },
+    { id: 'nba', label: 'NBA' },
+    { id: 'nfl', label: 'NFL' },
+    { id: 'mlb', label: 'MLB' },
+    { id: 'nhl', label: 'NHL' },
+    { id: 'soccer', label: 'Soccer' },
   ];
 
   const evPicks = evPicksData?.picks || [];
@@ -330,7 +342,7 @@ export default function Dashboard() {
                             className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                             data-testid={`tab-sport-${sport.id}`}
                           >
-                            <span>{sport.icon}</span>
+                            <SportIcon sport={sport.id} />
                             <span>{sport.label}</span>
                           </TabsTrigger>
                         ))}
@@ -511,8 +523,11 @@ export default function Dashboard() {
                                   data-testid={`leaderboard-row-${idx}`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <span className="w-6 text-center font-bold">
-                                      {user.rank === 1 ? '🥇' : user.rank === 2 ? '🥈' : user.rank === 3 ? '🥉' : `#${user.rank}`}
+                                    <span className="w-6 flex justify-center font-bold">
+                                      {user.rank === 1 ? <Medal className="h-4 w-4 text-yellow-500" /> : 
+                                       user.rank === 2 ? <Medal className="h-4 w-4 text-gray-400" /> : 
+                                       user.rank === 3 ? <Medal className="h-4 w-4 text-amber-600" /> : 
+                                       `#${user.rank}`}
                                     </span>
                                     <span className="font-medium">{user.username}</span>
                                   </div>
@@ -562,12 +577,12 @@ export default function Dashboard() {
                                     title={badge.name}
                                     data-testid={`badge-${badge.id}`}
                                   >
-                                    <div className="text-2xl mb-1">
-                                      {badge.id === 'first_win' && '🎉'}
-                                      {badge.id === 'week_streak' && '🔥'}
-                                      {badge.id === 'high_roller' && '💰'}
-                                      {badge.id === 'parlay_master' && '🎯'}
-                                      {badge.id === 'sharp_eye' && '👁️'}
+                                    <div className="flex justify-center mb-1">
+                                      {badge.id === 'first_win' && <PartyPopper className="h-6 w-6 text-primary" />}
+                                      {badge.id === 'week_streak' && <Flame className="h-6 w-6 text-orange-500" />}
+                                      {badge.id === 'high_roller' && <TrendingUp className="h-6 w-6 text-success" />}
+                                      {badge.id === 'parlay_master' && <Target className="h-6 w-6 text-primary" />}
+                                      {badge.id === 'sharp_eye' && <Eye className="h-6 w-6 text-primary" />}
                                     </div>
                                     <div className="text-xs font-medium truncate">{badge.name}</div>
                                     {!badge.earned && badge.progress && (
@@ -701,16 +716,26 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <footer className="mt-12 pt-6 border-t">
-                  <div className="text-center text-sm text-muted-foreground space-y-2">
-                    <p>
-                      <strong>Disclaimer:</strong> For entertainment purposes only. 
-                      Past performance does not guarantee future results.
-                    </p>
-                    <p>
-                      Gambling involves risk. Never bet more than you can afford to lose. 
-                      This is NOT financial advice. Please gamble responsibly.
-                    </p>
+                <footer className="mt-12 pt-6 border-t" data-testid="legal-disclaimer-footer">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-2 text-warning">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span className="font-semibold">Responsible Gambling</span>
+                    </div>
+                    <div className="text-center text-sm text-muted-foreground space-y-2 max-w-2xl">
+                      <p>
+                        <strong>Legal Disclaimer:</strong> MVP is for entertainment and informational purposes only. 
+                        This platform does NOT facilitate real money betting. All data shown is for analysis purposes.
+                      </p>
+                      <p>
+                        Past performance does not guarantee future results. Sports betting involves significant risk. 
+                        Never bet more than you can afford to lose. This is NOT financial advice.
+                      </p>
+                      <p>
+                        If you or someone you know has a gambling problem, call <strong>1-800-GAMBLER</strong> for help.
+                        Must be 21+ to participate in sports betting in most jurisdictions.
+                      </p>
+                    </div>
                   </div>
                 </footer>
               </div>
