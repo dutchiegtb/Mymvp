@@ -47,6 +47,13 @@ Preferred communication style: Simple, everyday language.
 - **Promo Codes**: Discount codes with percentage/fixed/trial_days types
 - **Ambassadors**: Referral program with commission tracking
 - **Bot Users/Alerts**: Discord/Telegram integration (schema ready)
+- **User Stats**: Gamification system with levels, XP, streaks, wins/losses tracking
+- **Badges**: Achievement badges with icons, categories, and XP rewards
+- **User Badges**: Junction table for earned badges per user
+- **User Follows**: Social follow relationships between users
+- **Social Posts**: Activity feed posts (parlay wins, milestones, picks shared)
+- **Post Likes/Comments**: Social engagement on feed posts
+- **Tracked Picks**: Profit tracker for "what if" calculation based on following picks
 
 ### External Services Integration
 - **The Odds API**: Primary data source for real-time odds from 30+ sportsbooks

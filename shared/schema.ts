@@ -298,7 +298,11 @@ export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: t
 export const insertAmbassadorSchema = createInsertSchema(ambassadors).omit({ id: true, createdAt: true, totalReferrals: true, totalEarnings: true, pendingPayout: true });
 export const insertUserStatsSchema = createInsertSchema(userStats).omit({ id: true, updatedAt: true });
 export const insertBadgeSchema = createInsertSchema(badges).omit({ id: true, createdAt: true });
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({ id: true, earnedAt: true });
+export const insertUserFollowSchema = createInsertSchema(userFollows).omit({ id: true, createdAt: true });
 export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, likesCount: true, commentsCount: true });
+export const insertPostLikeSchema = createInsertSchema(postLikes).omit({ id: true, createdAt: true });
+export const insertPostCommentSchema = createInsertSchema(postComments).omit({ id: true, createdAt: true });
 export const insertTrackedPickSchema = createInsertSchema(trackedPicks).omit({ id: true, trackedAt: true });
 
 // Types
@@ -328,6 +332,14 @@ export type SocialPost = typeof socialPosts.$inferSelect;
 export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
 export type TrackedPick = typeof trackedPicks.$inferSelect;
 export type InsertTrackedPick = z.infer<typeof insertTrackedPickSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type UserFollow = typeof userFollows.$inferSelect;
+export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
+export type PostLike = typeof postLikes.$inferSelect;
+export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;
+export type PostComment = typeof postComments.$inferSelect;
+export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
 
 // Subscription tiers
 export type SubscriptionTier = "free" | "web" | "premium" | "elite";
