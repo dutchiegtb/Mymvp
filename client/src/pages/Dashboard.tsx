@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle } from "lucide-react";
+import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ParlayLeg } from "@/components/ParlayBuilder";
 
@@ -109,7 +109,7 @@ export default function Dashboard() {
   };
 
   const [selectedSport, setSelectedSport] = useState("all");
-  const [activeMainTab, setActiveMainTab] = useState<'picks' | 'social' | 'profits'>('picks');
+  const [activeMainTab, setActiveMainTab] = useState<'picks' | 'social' | 'profits' | 'settings'>('picks');
   const [leaderboardTimeframe, setLeaderboardTimeframe] = useState('weekly');
   const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
 
@@ -239,10 +239,16 @@ export default function Dashboard() {
 
   const xpProgress = userStats ? (userStats.xp / userStats.xpToNextLevel) * 100 : 0;
 
+  const handleSidebarTabChange = (tab: string) => {
+    if (tab === 'picks' || tab === 'social' || tab === 'profits' || tab === 'settings') {
+      setActiveMainTab(tab);
+    }
+  };
+
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
-        <AppSidebar userTier="free" />
+        <AppSidebar userTier="free" onTabChange={handleSidebarTabChange} activeTab={activeMainTab} />
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between gap-4 p-4 border-b">
             <div className="flex items-center gap-4 flex-wrap">
@@ -713,6 +719,110 @@ export default function Dashboard() {
                         </Card>
                       </>
                     )}
+                  </div>
+                )}
+
+                {activeMainTab === 'settings' && (
+                  <div className="space-y-6">
+                    <div>
+                      <h1 className="text-3xl font-bold mb-2" data-testid="text-settings-title">
+                        Settings
+                      </h1>
+                      <p className="text-muted-foreground">
+                        Manage your account preferences and notifications
+                      </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <User className="h-5 w-5" />
+                            Account
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                            <div>
+                              <p className="font-medium">Email Notifications</p>
+                              <p className="text-sm text-muted-foreground">Receive daily pick summaries</p>
+                            </div>
+                            <Button variant="outline" size="sm">Enable</Button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                            <div>
+                              <p className="font-medium">Push Notifications</p>
+                              <p className="text-sm text-muted-foreground">Get alerts for high-value picks</p>
+                            </div>
+                            <Button variant="outline" size="sm">Enable</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Bell className="h-5 w-5" />
+                            Alerts
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                            <div>
+                              <p className="font-medium">EV Threshold</p>
+                              <p className="text-sm text-muted-foreground">Minimum +EV% to alert</p>
+                            </div>
+                            <Badge>+5%</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                            <div>
+                              <p className="font-medium">Sports Filter</p>
+                              <p className="text-sm text-muted-foreground">Sports you want alerts for</p>
+                            </div>
+                            <Badge>All Sports</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Moon className="h-5 w-5" />
+                            Appearance
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                            <div>
+                              <p className="font-medium">Theme</p>
+                              <p className="text-sm text-muted-foreground">Toggle dark/light mode</p>
+                            </div>
+                            <ThemeToggle />
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Settings className="h-5 w-5" />
+                            Subscription
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                            <div>
+                              <p className="font-medium">Current Plan</p>
+                              <p className="text-sm text-muted-foreground">Free tier</p>
+                            </div>
+                            <Badge variant="secondary">Free</Badge>
+                          </div>
+                          <Button className="w-full" data-testid="button-upgrade-settings">
+                            Upgrade to Pro
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
                 )}
 
