@@ -4,9 +4,12 @@ import { storage } from "./storage";
 import { fetchLiveOdds, fetchAllSportsOdds, getAvailableSports } from "./oddsService";
 import { calculateEV, calculateParlay, filterPicksBySport, getTopPicks, filterByMinEV, type ParlayLeg, type EVPick } from "./evCalculator";
 import { SUPPORTED_SPORTS, SPORTS_BY_CATEGORY, PREDICTION_CATEGORIES, type SportKey } from "@shared/schema";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 // Admin key from environment (secure - no fallback)
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
+const JWT_SECRET = process.env.SESSION_SECRET;
 
 // Middleware to require admin access
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -275,10 +278,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AUTH ROUTES
   // ═══════════════════════════════════════════════════════════════
   
-  // AUTH ROUTES - Development mode (requires bcrypt + JWT for production)
-  // These are placeholder routes that allow testing the flow
-  // Production requires: password hashing, database storage, JWT tokens
-  
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { email, password, username, referralCode } = req.body;
@@ -291,20 +290,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Password must be at least 8 characters' });
       }
       
-      // DEVELOPMENT MODE: In production, implement:
-      // 1. Hash password with bcrypt
-      // 2. Check if email already exists in database
-      // 3. Create user record in database
-      // 4. Generate JWT token with expiration
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
       
-      console.log(`[DEV] Register attempt: ${email}`);
+      // Hash password with bcrypt
+      const passwordHash = await bcrypt.hash(password, 10);
+      
+      // Create user in database
+      const newUser = await storage.createUser({
+        email: email.toLowerCase(),
+        username: username || email.split('@')[0],
+        passwordHash,
+        referredByCode: referralCode || undefined,
+        subscriptionTier: 'free',
+        subscriptionStatus: 'inactive',
+      });
+      
+      // Generate JWT token
+      if (!JWT_SECRET) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+      const token = jwt.sign({ userId: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
+      
+      console.log(`✅ User registered: ${email}`);
       
       res.json({
         success: true,
-        message: 'Account created (dev mode)',
-        user: { email, username, subscriptionTier: 'free' },
-        token: 'dev-token-' + Date.now(),
-        _devWarning: 'This is development mode. Auth not persisted.'
+        message: 'Account created successfully',
+        user: { 
+          id: newUser.id,
+          email: newUser.email, 
+          username: newUser.username, 
+          subscriptionTier: newUser.subscriptionTier,
+          isAdmin: newUser.isAdmin,
+        },
+        token,
       });
     } catch (error) {
       console.error('Registration error:', error);
@@ -320,18 +343,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Email and password required' });
       }
       
-      // DEVELOPMENT MODE: In production, implement:
-      // 1. Lookup user by email in database
-      // 2. Verify password hash with bcrypt.compare()
-      // 3. Generate JWT token with user ID
+      // Lookup user by email in database
+      const user = await storage.getUserByEmail(email.toLowerCase());
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
       
-      console.log(`[DEV] Login attempt: ${email}`);
+      // Verify password hash with bcrypt
+      const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+      
+      // Generate JWT token
+      if (!JWT_SECRET) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+      
+      console.log(`✅ User logged in: ${email}`);
       
       res.json({
         success: true,
-        user: { email, subscriptionTier: 'free', subscriptionStatus: 'inactive' },
-        token: 'dev-token-' + Date.now(),
-        _devWarning: 'This is development mode. Auth not verified.'
+        user: { 
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          subscriptionTier: user.subscriptionTier, 
+          subscriptionStatus: user.subscriptionStatus,
+          isAdmin: user.isAdmin,
+        },
+        token,
       });
     } catch (error) {
       console.error('Login error:', error);
@@ -339,21 +381,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/me", (req: Request, res: Response) => {
-    // DEVELOPMENT MODE: In production:
-    // 1. Extract JWT from Authorization header
-    // 2. Verify token signature and expiration
-    // 3. Return user data from database
-    
-    res.json({
-      email: 'demo@example.com',
-      username: 'demo_user',
-      subscriptionTier: 'free',
-      subscriptionStatus: 'inactive',
-      preferredLanguage: 'en',
-      theme: 'dark',
-      _devWarning: 'This is development mode. Returns mock user data.'
-    });
+  app.get("/api/auth/me", async (req: Request, res: Response) => {
+    try {
+      // Extract JWT from Authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      
+      const token = authHeader.substring(7);
+      
+      if (!JWT_SECRET) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+      
+      // Verify token
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      
+      // Get user from database
+      const user = await storage.getUser(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+      
+      res.json({
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        subscriptionTier: user.subscriptionTier,
+        subscriptionStatus: user.subscriptionStatus,
+        isAdmin: user.isAdmin,
+        preferredLanguage: user.preferredLanguage,
+        theme: user.theme,
+      });
+    } catch (error) {
+      console.error('Auth check error:', error);
+      res.status(401).json({ error: 'Invalid token' });
+    }
   });
 
   // ═══════════════════════════════════════════════════════════════
