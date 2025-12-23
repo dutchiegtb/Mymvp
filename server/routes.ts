@@ -613,14 +613,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalHypotheticalGain: 2847,
       },
       badges: [
-        { id: 'first_win', name: 'First Win', icon: '1', earned: true, earnedAt: '2024-01-05' },
+        { id: 'first_hit', name: 'First Hit', icon: '1', earned: true, earnedAt: '2024-01-05' },
         { id: 'week_streak', name: '7 Day Streak', icon: '2', earned: true, earnedAt: '2024-01-12' },
         { id: 'high_roller', name: 'High Roller', icon: '3', earned: false, progress: 75 },
         { id: 'parlay_master', name: 'Parlay Master', icon: '4', earned: false, progress: 40 },
         { id: 'sharp_eye', name: 'Sharp Eye', icon: '5', earned: true, earnedAt: '2024-01-18' },
       ],
       achievements: [
-        { name: '10 Wins in a Row', progress: 7, total: 10, reward: '500 XP' },
+        { name: '10 Hits in a Row', progress: 7, total: 10, reward: '500 XP' },
         { name: 'Follow 5 Users', progress: 2, total: 5, reward: 'Social Badge' },
         { name: 'Hit a 5-Leg Parlay', progress: 0, total: 1, reward: 'Parlay Master Badge' },
       ],
