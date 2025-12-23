@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
@@ -13,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ParlayLeg } from "@/components/ParlayBuilder";
 
@@ -52,7 +54,7 @@ interface UserStats {
   xp: number;
   xpToNextLevel: number;
   streak: { current: number; longest: number; rewardAt: number };
-  stats: { totalWins: number; totalLosses: number; winRate: number; totalProfit: number };
+  stats: { totalHits: number; totalMisses: number; hitRate: number; totalHypotheticalGain: number };
   badges: { id: string; name: string; icon: string; earned: boolean; earnedAt?: string; progress?: number }[];
   achievements: { name: string; progress: number; total: number; reward: string }[];
 }
@@ -60,8 +62,8 @@ interface UserStats {
 interface LeaderboardEntry {
   rank: number;
   username: string;
-  winRate: number;
-  profit: number;
+  hitRate: number;
+  hypotheticalGain: number;
   level: number;
   streak: number;
 }
@@ -78,20 +80,20 @@ interface SocialPost {
   timestamp: string;
 }
 
-interface ProfitData {
+interface SimulatorData {
   summary: {
-    totalPotentialProfit: number;
+    totalHypotheticalGain: number;
     totalPicksTracked: number;
-    wins: number;
-    losses: number;
-    winRate: number;
+    hits: number;
+    misses: number;
+    hitRate: number;
     avgBetAmount: number;
   };
-  bestDay: { date: string; profit: number; picks: number };
-  worstDay: { date: string; profit: number; picks: number };
-  currentMonth: { profit: number; wins: number; losses: number; roi: number };
-  recentPicks: { date: string; game: string; selection: string; result: string; profit: number }[];
-  chartData: { date: string; profit: number; cumulative: number }[];
+  bestDay: { date: string; hypotheticalGain: number; picks: number };
+  worstDay: { date: string; hypotheticalGain: number; picks: number };
+  currentMonth: { hypotheticalGain: number; hits: number; misses: number; roi: number };
+  recentPicks: { date: string; game: string; selection: string; result: string; hypotheticalGain: number }[];
+  chartData: { date: string; hypotheticalGain: number; cumulative: number }[];
 }
 
 const sportKeyMap: Record<string, string> = {
@@ -103,15 +105,116 @@ const sportKeyMap: Record<string, string> = {
   'soccer': 'soccer_epl',
 };
 
+function AgeGateModal({ open, onComplete }: { open: boolean; onComplete: () => void }) {
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+
+  const canProceed = ageConfirmed && disclaimerAccepted;
+
+  const handleProceed = () => {
+    if (canProceed) {
+      localStorage.setItem('mvp_onboarded', 'true');
+      onComplete();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={() => {}}>
+      <DialogContent className="sm:max-w-lg border-2 border-[#00FF7F]/50 bg-background" data-testid="age-gate-modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Shield className="h-6 w-6 text-[#00FF7F]" />
+            <span>Welcome to MVP</span>
+          </DialogTitle>
+          <DialogDescription className="text-base">
+            Before accessing the dashboard, please confirm the following:
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+          <div className="flex items-start gap-3 p-4 rounded-lg border border-[#00FF7F]/30 bg-[#00FF7F]/5">
+            <Checkbox
+              id="age-confirm"
+              checked={ageConfirmed}
+              onCheckedChange={(checked) => setAgeConfirmed(checked as boolean)}
+              className="mt-0.5 border-[#00FF7F] data-[state=checked]:bg-[#00FF7F] data-[state=checked]:border-[#00FF7F]"
+              data-testid="checkbox-age-confirm"
+            />
+            <label htmlFor="age-confirm" className="text-sm font-medium cursor-pointer">
+              I am 21 years of age or older
+            </label>
+          </div>
+
+          <div className="flex items-start gap-3 p-4 rounded-lg border border-[#00FF7F]/30 bg-[#00FF7F]/5">
+            <Checkbox
+              id="disclaimer-accept"
+              checked={disclaimerAccepted}
+              onCheckedChange={(checked) => setDisclaimerAccepted(checked as boolean)}
+              className="mt-0.5 border-[#00FF7F] data-[state=checked]:bg-[#00FF7F] data-[state=checked]:border-[#00FF7F]"
+              data-testid="checkbox-disclaimer-accept"
+            />
+            <div className="space-y-2">
+              <label htmlFor="disclaimer-accept" className="text-sm font-medium cursor-pointer">
+                I understand and accept the following:
+              </label>
+              <ul className="text-sm text-muted-foreground space-y-1.5 ml-2">
+                <li className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                  <span>MVP does NOT accept bets, wagers, or hold any funds</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <BarChart3 className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                  <span>All performance tracking shows hypothetical results only</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                  <span>Confidence scores reflect model strength, not outcome certainty</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Shield className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                  <span>This platform is for entertainment and informational purposes only</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button 
+            onClick={handleProceed} 
+            disabled={!canProceed}
+            className="w-full bg-[#00FF7F] hover:bg-[#00FF7F]/80 text-black font-semibold"
+            data-testid="button-proceed"
+          >
+            Enter Dashboard
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Dashboard() {
   const style = {
     "--sidebar-width": "16rem",
   };
 
+  const [showAgeGate, setShowAgeGate] = useState(false);
   const [selectedSport, setSelectedSport] = useState("all");
-  const [activeMainTab, setActiveMainTab] = useState<'picks' | 'social' | 'profits' | 'settings'>('picks');
+  const [activeMainTab, setActiveMainTab] = useState<'picks' | 'social' | 'simulator' | 'settings'>('picks');
   const [leaderboardTimeframe, setLeaderboardTimeframe] = useState('weekly');
   const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
+
+  useEffect(() => {
+    const onboarded = localStorage.getItem('mvp_onboarded');
+    if (!onboarded) {
+      setShowAgeGate(true);
+    }
+  }, []);
+
+  const handleAgeGateComplete = () => {
+    setShowAgeGate(false);
+  };
 
   const sportApiKey = sportKeyMap[selectedSport] || 'all';
 
@@ -151,7 +254,7 @@ export default function Dashboard() {
     queryKey: ['/api/social/feed'],
   });
 
-  const { data: profitData } = useQuery<ProfitData>({
+  const { data: simulatorData } = useQuery<SimulatorData>({
     queryKey: ['/api/user/profit-tracker'],
   });
 
@@ -240,619 +343,655 @@ export default function Dashboard() {
   const xpProgress = userStats ? (userStats.xp / userStats.xpToNextLevel) * 100 : 0;
 
   const handleSidebarTabChange = (tab: string) => {
-    if (tab === 'picks' || tab === 'social' || tab === 'profits' || tab === 'settings') {
+    if (tab === 'picks' || tab === 'social' || tab === 'simulator' || tab === 'settings') {
       setActiveMainTab(tab);
     }
   };
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar userTier="free" onTabChange={handleSidebarTabChange} activeTab={activeMainTab} />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between gap-4 p-4 border-b">
-            <div className="flex items-center gap-4 flex-wrap">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-success animate-pulse" />
-                <span className="text-sm font-medium">LIVE</span>
+    <>
+      <AgeGateModal open={showAgeGate} onComplete={handleAgeGateComplete} />
+      
+      <SidebarProvider style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <AppSidebar userTier="free" onTabChange={handleSidebarTabChange} activeTab={activeMainTab} />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <header className="flex items-center justify-between gap-4 p-4 border-b">
+              <div className="flex items-center gap-4 flex-wrap">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <div className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-success animate-pulse" />
+                  <span className="text-sm font-medium">LIVE</span>
+                </div>
+                {evPicksData?.lastUpdated && (
+                  <span className="text-xs text-muted-foreground">
+                    Updated: {new Date(evPicksData.lastUpdated).toLocaleTimeString()}
+                  </span>
+                )}
               </div>
-              {evPicksData?.lastUpdated && (
-                <span className="text-xs text-muted-foreground">
-                  Updated: {new Date(evPicksData.lastUpdated).toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-3 flex-wrap">
-              {userStats && (
-                <>
-                  <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border" data-testid="user-level-display">
-                    <Star className="h-4 w-4 text-warning" />
-                    <span className="text-sm font-bold">Lvl {userStats.level}</span>
-                    <div className="w-16 hidden sm:block">
-                      <Progress value={xpProgress} className="h-1.5" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1.5 bg-orange-500/10 px-3 py-1.5 rounded-lg border border-orange-500/50" data-testid="user-streak-display">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm font-bold text-orange-500">{userStats.streak.current}</span>
-                  </div>
-                </>
-              )}
-              <ThemeToggle />
-            </div>
-          </header>
-
-          <div className="flex border-b px-4">
-            <button
-              onClick={() => setActiveMainTab('picks')}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeMainTab === 'picks' 
-                  ? 'border-primary text-primary font-semibold' 
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              data-testid="tab-main-picks"
-            >
-              <Target className="h-4 w-4" />
-              <span>Picks</span>
-            </button>
-            <button
-              onClick={() => setActiveMainTab('social')}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeMainTab === 'social' 
-                  ? 'border-primary text-primary font-semibold' 
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              data-testid="tab-main-social"
-            >
-              <Users className="h-4 w-4" />
-              <span>Social</span>
-            </button>
-            <button
-              onClick={() => setActiveMainTab('profits')}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeMainTab === 'profits' 
-                  ? 'border-primary text-primary font-semibold' 
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              data-testid="tab-main-profits"
-            >
-              <TrendingUp className="h-4 w-4" />
-              <span>Profits</span>
-            </button>
-          </div>
-
-          <main className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="max-w-7xl mx-auto p-6 space-y-6">
-                
-                {activeMainTab === 'picks' && (
+              
+              <div className="flex items-center gap-3 flex-wrap">
+                {userStats && (
                   <>
-                    <div>
-                      <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
-                        MVP Dashboard
-                      </h1>
-                      <p className="text-muted-foreground">
-                        Real-time odds analysis across all major sportsbooks
-                      </p>
+                    <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border" data-testid="user-level-display">
+                      <Star className="h-4 w-4 text-warning" />
+                      <span className="text-sm font-bold">Lvl {userStats.level}</span>
+                      <div className="w-16 hidden sm:block">
+                        <Progress value={xpProgress} className="h-1.5" />
+                      </div>
                     </div>
+                    
+                    <div className="flex items-center gap-1.5 bg-orange-500/10 px-3 py-1.5 rounded-lg border border-orange-500/50" data-testid="user-streak-display">
+                      <Flame className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm font-bold text-orange-500">{userStats.streak.current}</span>
+                    </div>
+                  </>
+                )}
+                <ThemeToggle />
+              </div>
+            </header>
 
-                    <Tabs value={selectedSport} onValueChange={setSelectedSport} className="space-y-6">
-                      <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 p-2">
-                        {sports.map((sport) => (
-                          <TabsTrigger
-                            key={sport.id}
-                            value={sport.id}
-                            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                            data-testid={`tab-sport-${sport.id}`}
-                          >
-                            <SportIcon sport={sport.id} />
-                            <span>{sport.label}</span>
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
+            <div className="flex border-b px-4">
+              <button
+                onClick={() => setActiveMainTab('picks')}
+                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  activeMainTab === 'picks' 
+                    ? 'border-primary text-primary font-semibold' 
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-main-picks"
+              >
+                <Target className="h-4 w-4" />
+                <span>Picks</span>
+              </button>
+              <button
+                onClick={() => setActiveMainTab('social')}
+                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  activeMainTab === 'social' 
+                    ? 'border-primary text-primary font-semibold' 
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-main-social"
+              >
+                <Users className="h-4 w-4" />
+                <span>Social</span>
+              </button>
+              <button
+                onClick={() => setActiveMainTab('simulator')}
+                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  activeMainTab === 'simulator' 
+                    ? 'border-primary text-primary font-semibold' 
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-main-simulator"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>Simulator</span>
+              </button>
+            </div>
 
-                      <TabsContent value={selectedSport} className="space-y-6">
-                        <div className="grid lg:grid-cols-3 gap-6">
-                          <div className="lg:col-span-2 space-y-6">
-                            {topPicksLoading ? (
-                              <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                              </div>
-                            ) : (
-                              <TopPicksSection picks={topPicks.slice(0, 3)} />
-                            )}
+            <main className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="max-w-7xl mx-auto p-6 space-y-6">
+                  
+                  {activeMainTab === 'picks' && (
+                    <>
+                      <div>
+                        <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
+                          MVP Dashboard
+                        </h1>
+                        <p className="text-muted-foreground">
+                          Real-time odds analysis across all major sportsbooks
+                        </p>
+                      </div>
 
-                            <div>
-                              <div className="flex items-center justify-between gap-2 mb-4">
-                                <h2 className="text-2xl font-bold">Value Picks</h2>
-                                <Badge variant="outline" className="font-mono">
-                                  {evPicks.length} picks found
-                                </Badge>
-                              </div>
-                              {evLoading ? (
+                      <Tabs value={selectedSport} onValueChange={setSelectedSport} className="space-y-6">
+                        <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 p-2">
+                          {sports.map((sport) => (
+                            <TabsTrigger
+                              key={sport.id}
+                              value={sport.id}
+                              className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                              data-testid={`tab-sport-${sport.id}`}
+                            >
+                              <SportIcon sport={sport.id} />
+                              <span>{sport.label}</span>
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+
+                        <TabsContent value={selectedSport} className="space-y-6">
+                          <div className="grid lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2 space-y-6">
+                              {topPicksLoading ? (
                                 <div className="flex items-center justify-center py-12">
                                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
-                              ) : valuePicks.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground">
-                                  <p>No value picks found for {selectedSport === 'all' ? 'any sport' : selectedSport.toUpperCase()}</p>
-                                  <p className="text-sm mt-2">Check back when games are live!</p>
-                                </div>
                               ) : (
-                                <div className="grid gap-6">
-                                  {valuePicks.map((pick, index) => (
-                                    <div key={pick.id} onClick={() => handleAddToParlay(evPicks[index])} className="cursor-pointer">
-                                      <ValuePickCard pick={pick} />
-                                    </div>
-                                  ))}
-                                </div>
+                                <TopPicksSection picks={topPicks.slice(0, 3)} />
                               )}
-                            </div>
 
-                            {mockOddsData.length > 0 && (
                               <div>
-                                <h2 className="text-2xl font-bold mb-4">Odds Comparison</h2>
-                                <OddsComparisonTable data={mockOddsData} sportsbooks={sportsbooks} />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="space-y-6">
-                            <ParlayBuilder 
-                              legs={parlayLegs} 
-                              onRemoveLeg={handleRemoveLeg}
-                              onClear={handleClearParlay}
-                            />
-
-                            <PaywallCard
-                              tierName="Premium"
-                              price="$24.99/mo"
-                              benefits={[
-                                'Sharp picks',
-                                'Discord bot access',
-                                'Line movement alerts',
-                              ]}
-                            />
-                          </div>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </>
-                )}
-
-                {activeMainTab === 'social' && (
-                  <div className="space-y-6">
-                    <div>
-                      <h1 className="text-3xl font-bold mb-2" data-testid="text-social-title">
-                        Community
-                      </h1>
-                      <p className="text-muted-foreground">
-                        See what top bettors are winning on
-                      </p>
-                    </div>
-
-                    <div className="grid lg:grid-cols-3 gap-6">
-                      <div className="lg:col-span-2 space-y-4">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                          <Zap className="h-5 w-5 text-warning" />
-                          Live Feed
-                        </h2>
-                        
-                        {socialData?.feed?.map((post) => (
-                          <Card key={post.id} className="hover-elevate" data-testid={`social-post-${post.id}`}>
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-lg font-bold">
-                                    {post.username.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-semibold">{post.username}</span>
-                                      <Badge variant="secondary" className="text-xs">Lvl {post.level}</Badge>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                      {new Date(post.timestamp).toLocaleString()}
-                                    </p>
-                                  </div>
+                                <div className="flex items-center justify-between gap-2 mb-4">
+                                  <h2 className="text-2xl font-bold">Value Picks</h2>
+                                  <Badge variant="outline" className="font-mono">
+                                    {evPicks.length} picks found
+                                  </Badge>
                                 </div>
-                                
-                                {post.action === 'parlay_win' && (
-                                  <Badge className="bg-success text-success-foreground">Parlay Win</Badge>
-                                )}
-                                {post.action === 'big_win' && (
-                                  <Badge className="bg-primary">Win</Badge>
-                                )}
-                                {post.action === 'streak_milestone' && (
-                                  <Badge className="bg-orange-500">Streak</Badge>
+                                {evLoading ? (
+                                  <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                  </div>
+                                ) : valuePicks.length === 0 ? (
+                                  <div className="text-center py-12 text-muted-foreground">
+                                    <p>No value picks found for {selectedSport === 'all' ? 'any sport' : selectedSport.toUpperCase()}</p>
+                                    <p className="text-sm mt-2">Check back when games are live!</p>
+                                  </div>
+                                ) : (
+                                  <div className="grid gap-6">
+                                    {valuePicks.map((pick, index) => (
+                                      <div key={pick.id} onClick={() => handleAddToParlay(evPicks[index])} className="cursor-pointer">
+                                        <ValuePickCard pick={pick} />
+                                      </div>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
-                              
-                              <p className="mt-3 text-foreground">{post.content}</p>
-                              
-                              {post.metadata.profit && (
-                                <div className="mt-2 p-2 bg-success/10 rounded-lg inline-block">
-                                  <span className="text-success font-bold">+${post.metadata.profit}</span>
+
+                              {mockOddsData.length > 0 && (
+                                <div>
+                                  <h2 className="text-2xl font-bold mb-4">Odds Comparison</h2>
+                                  <OddsComparisonTable data={mockOddsData} sportsbooks={sportsbooks} />
                                 </div>
                               )}
-                              
-                              <div className="flex items-center gap-4 mt-4 pt-3 border-t">
-                                <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-like-${post.id}`}>
-                                  <Heart className="h-4 w-4" />
-                                  <span>{post.likes}</span>
-                                </Button>
-                                <Button variant="ghost" size="sm" className="gap-1">
-                                  <MessageCircle className="h-4 w-4" />
-                                  <span>{post.comments}</span>
-                                </Button>
-                                <Button variant="ghost" size="sm" className="gap-1">
-                                  <Share2 className="h-4 w-4" />
-                                  <span>Share</span>
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                            </div>
+
+                            <div className="space-y-6">
+                              <ParlayBuilder 
+                                legs={parlayLegs} 
+                                onRemoveLeg={handleRemoveLeg}
+                                onClear={handleClearParlay}
+                              />
+
+                              <PaywallCard
+                                tierName="Premium"
+                                price="$24.99/mo"
+                                benefits={[
+                                  'Sharp picks',
+                                  'Discord bot access',
+                                  'Line movement alerts',
+                                ]}
+                              />
+                            </div>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </>
+                  )}
+
+                  {activeMainTab === 'social' && (
+                    <div className="space-y-6">
+                      <div>
+                        <h1 className="text-3xl font-bold mb-2" data-testid="text-social-title">
+                          Community
+                        </h1>
+                        <p className="text-muted-foreground">
+                          See what top users are tracking
+                        </p>
                       </div>
 
-                      <div className="space-y-6">
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <CardTitle className="flex items-center gap-2">
-                              <Trophy className="h-5 w-5 text-warning" />
-                              Leaderboard
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex gap-1 mb-4">
-                              {['weekly', 'monthly', 'allTime'].map((tf) => (
-                                <Button
-                                  key={tf}
-                                  variant={leaderboardTimeframe === tf ? 'default' : 'ghost'}
-                                  size="sm"
-                                  onClick={() => setLeaderboardTimeframe(tf)}
-                                  data-testid={`button-leaderboard-${tf}`}
-                                >
-                                  {tf === 'allTime' ? 'All Time' : tf.charAt(0).toUpperCase() + tf.slice(1)}
-                                </Button>
-                              ))}
-                            </div>
-                            
-                            <div className="space-y-2">
-                              {leaderboardData?.leaderboard?.slice(0, 5).map((user, idx) => (
-                                <div 
-                                  key={user.username} 
-                                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-                                  data-testid={`leaderboard-row-${idx}`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-6 flex justify-center font-bold">
-                                      {user.rank === 1 ? <Medal className="h-4 w-4 text-yellow-500" /> : 
-                                       user.rank === 2 ? <Medal className="h-4 w-4 text-gray-400" /> : 
-                                       user.rank === 3 ? <Medal className="h-4 w-4 text-amber-600" /> : 
-                                       `#${user.rank}`}
-                                    </span>
-                                    <span className="font-medium">{user.username}</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-success font-bold">${user.profit.toLocaleString()}</div>
-                                    <div className="text-xs text-muted-foreground">{user.winRate}% win</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            
-                            {leaderboardData?.userRank && (
-                              <div className="mt-4 pt-4 border-t">
-                                <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/30">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-6 text-center font-bold">#{leaderboardData.userRank.rank}</span>
-                                    <span className="font-medium">You</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-success font-bold">${leaderboardData.userRank.profit}</div>
-                                    <div className="text-xs text-muted-foreground">{leaderboardData.userRank.winRate}% win</div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        {userStats && (
-                          <Card>
-                            <CardHeader className="pb-3">
-                              <CardTitle className="flex items-center gap-2">
-                                <Award className="h-5 w-5 text-primary" />
-                                Your Badges
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="grid grid-cols-3 gap-2">
-                                {userStats.badges.map((badge) => (
-                                  <div 
-                                    key={badge.id}
-                                    className={`p-3 rounded-lg text-center transition-all ${
-                                      badge.earned 
-                                        ? 'bg-primary/10 border border-primary/30' 
-                                        : 'bg-muted/50 opacity-50'
-                                    }`}
-                                    title={badge.name}
-                                    data-testid={`badge-${badge.id}`}
-                                  >
-                                    <div className="flex justify-center mb-1">
-                                      {badge.id === 'first_win' && <PartyPopper className="h-6 w-6 text-primary" />}
-                                      {badge.id === 'week_streak' && <Flame className="h-6 w-6 text-orange-500" />}
-                                      {badge.id === 'high_roller' && <TrendingUp className="h-6 w-6 text-success" />}
-                                      {badge.id === 'parlay_master' && <Target className="h-6 w-6 text-primary" />}
-                                      {badge.id === 'sharp_eye' && <Eye className="h-6 w-6 text-primary" />}
+                      <div className="grid lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 space-y-4">
+                          <h2 className="text-xl font-bold flex items-center gap-2">
+                            <Zap className="h-5 w-5 text-warning" />
+                            Live Feed
+                          </h2>
+                          
+                          {socialData?.feed?.map((post) => (
+                            <Card key={post.id} className="hover-elevate" data-testid={`social-post-${post.id}`}>
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-lg font-bold">
+                                      {post.username.charAt(0)}
                                     </div>
-                                    <div className="text-xs font-medium truncate">{badge.name}</div>
-                                    {!badge.earned && badge.progress && (
-                                      <Progress value={badge.progress} className="h-1 mt-1" />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeMainTab === 'profits' && (
-                  <div className="space-y-6">
-                    <div>
-                      <h1 className="text-3xl font-bold mb-2" data-testid="text-profits-title">
-                        Profit Tracker
-                      </h1>
-                      <p className="text-muted-foreground">
-                        See what you would have won following our picks
-                      </p>
-                    </div>
-
-                    {profitData && (
-                      <>
-                        <Card className="bg-gradient-to-br from-success/20 to-primary/20 border-2 border-success">
-                          <CardContent className="p-8 text-center">
-                            <p className="text-lg text-muted-foreground mb-2">Potential Profit This Month</p>
-                            <p className="text-5xl font-bold text-success mb-2" data-testid="text-total-profit">
-                              ${profitData.summary.totalPotentialProfit.toLocaleString()}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Based on ${profitData.summary.avgBetAmount} bets on each pick
-                            </p>
-                          </CardContent>
-                        </Card>
-
-                        <div className="grid md:grid-cols-4 gap-4">
-                          <Card>
-                            <CardContent className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground">Total Picks</p>
-                              <p className="text-2xl font-bold">{profitData.summary.totalPicksTracked}</p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground">Wins</p>
-                              <p className="text-2xl font-bold text-success">{profitData.summary.wins}</p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground">Losses</p>
-                              <p className="text-2xl font-bold text-destructive">{profitData.summary.losses}</p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground">Win Rate</p>
-                              <p className="text-2xl font-bold text-primary">{profitData.summary.winRate}%</p>
-                            </CardContent>
-                          </Card>
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>Recent Picks</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="space-y-3">
-                                {profitData.recentPicks.map((pick, idx) => (
-                                  <div 
-                                    key={idx} 
-                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                                    data-testid={`recent-pick-${idx}`}
-                                  >
                                     <div>
-                                      <p className="font-medium">{pick.selection}</p>
-                                      <p className="text-sm text-muted-foreground">{pick.game}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <Badge variant={pick.result === 'win' ? 'default' : 'destructive'}>
-                                        {pick.result.toUpperCase()}
-                                      </Badge>
-                                      <p className={`text-sm font-bold mt-1 ${pick.profit >= 0 ? 'text-success' : 'text-destructive'}`}>
-                                        {pick.profit >= 0 ? '+' : ''}${pick.profit}
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold">{post.username}</span>
+                                        <Badge variant="secondary" className="text-xs">Lvl {post.level}</Badge>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground">
+                                        {new Date(post.timestamp).toLocaleString()}
                                       </p>
                                     </div>
                                   </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
-
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>Performance Summary</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              <div className="flex justify-between p-3 rounded-lg bg-success/10">
-                                <span>Best Day</span>
-                                <span className="font-bold text-success">+${profitData.bestDay.profit}</span>
-                              </div>
-                              <div className="flex justify-between p-3 rounded-lg bg-destructive/10">
-                                <span>Worst Day</span>
-                                <span className="font-bold text-destructive">${profitData.worstDay.profit}</span>
-                              </div>
-                              <div className="flex justify-between p-3 rounded-lg bg-primary/10">
-                                <span>Monthly ROI</span>
-                                <span className="font-bold text-primary">{profitData.currentMonth.roi}%</span>
-                              </div>
-                            </CardContent>
-                          </Card>
+                                  
+                                  {post.action === 'parlay_win' && (
+                                    <Badge className="bg-success text-success-foreground">Parlay Hit</Badge>
+                                  )}
+                                  {post.action === 'big_win' && (
+                                    <Badge className="bg-primary">Model Hit</Badge>
+                                  )}
+                                  {post.action === 'streak_milestone' && (
+                                    <Badge className="bg-orange-500">Streak</Badge>
+                                  )}
+                                </div>
+                                
+                                <p className="mt-3 text-foreground">{post.content}</p>
+                                
+                                {post.metadata.profit && (
+                                  <div className="mt-2 p-2 bg-success/10 rounded-lg inline-block">
+                                    <span className="text-success font-bold">+${post.metadata.profit} (hypothetical)</span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center gap-4 mt-4 pt-3 border-t">
+                                  <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-like-${post.id}`}>
+                                    <Heart className="h-4 w-4" />
+                                    <span>{post.likes}</span>
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="gap-1">
+                                    <MessageCircle className="h-4 w-4" />
+                                    <span>{post.comments}</span>
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="gap-1">
+                                    <Share2 className="h-4 w-4" />
+                                    <span>Share</span>
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
 
+                        <div className="space-y-6">
+                          <Card>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="flex items-center gap-2">
+                                <Trophy className="h-5 w-5 text-warning" />
+                                Leaderboard
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="flex gap-1 mb-4">
+                                {['weekly', 'monthly', 'allTime'].map((tf) => (
+                                  <Button
+                                    key={tf}
+                                    variant={leaderboardTimeframe === tf ? 'default' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => setLeaderboardTimeframe(tf)}
+                                    data-testid={`button-leaderboard-${tf}`}
+                                  >
+                                    {tf === 'allTime' ? 'All Time' : tf.charAt(0).toUpperCase() + tf.slice(1)}
+                                  </Button>
+                                ))}
+                              </div>
+                              
+                              <div className="space-y-2">
+                                {leaderboardData?.leaderboard?.slice(0, 5).map((user, idx) => (
+                                  <div 
+                                    key={user.username} 
+                                    className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                                    data-testid={`leaderboard-row-${idx}`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-6 flex justify-center font-bold">
+                                        {user.rank === 1 ? <Medal className="h-4 w-4 text-yellow-500" /> : 
+                                         user.rank === 2 ? <Medal className="h-4 w-4 text-gray-400" /> : 
+                                         user.rank === 3 ? <Medal className="h-4 w-4 text-amber-600" /> : 
+                                         `#${user.rank}`}
+                                      </span>
+                                      <span className="font-medium">{user.username}</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-success font-bold">${user.hypotheticalGain?.toLocaleString() ?? 0}</div>
+                                      <div className="text-xs text-muted-foreground">{user.hitRate}% hit rate</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {leaderboardData?.userRank && (
+                                <div className="mt-4 pt-4 border-t">
+                                  <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/30">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-6 text-center font-bold">#{leaderboardData.userRank.rank}</span>
+                                      <span className="font-medium">You</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-success font-bold">${leaderboardData.userRank.hypotheticalGain ?? 0}</div>
+                                      <div className="text-xs text-muted-foreground">{leaderboardData.userRank.hitRate}% hit rate</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          {userStats && (
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2">
+                                  <Award className="h-5 w-5 text-primary" />
+                                  Your Badges
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {userStats.badges.map((badge) => (
+                                    <div 
+                                      key={badge.id}
+                                      className={`p-3 rounded-lg text-center transition-all ${
+                                        badge.earned 
+                                          ? 'bg-primary/10 border border-primary/30' 
+                                          : 'bg-muted/50 opacity-50'
+                                      }`}
+                                      title={badge.name}
+                                      data-testid={`badge-${badge.id}`}
+                                    >
+                                      <div className="flex justify-center mb-1">
+                                        {badge.id === 'first_win' && <PartyPopper className="h-6 w-6 text-primary" />}
+                                        {badge.id === 'week_streak' && <Flame className="h-6 w-6 text-orange-500" />}
+                                        {badge.id === 'high_roller' && <TrendingUp className="h-6 w-6 text-success" />}
+                                        {badge.id === 'parlay_master' && <Target className="h-6 w-6 text-primary" />}
+                                        {badge.id === 'sharp_eye' && <Eye className="h-6 w-6 text-primary" />}
+                                      </div>
+                                      <div className="text-xs font-medium truncate">{badge.name}</div>
+                                      {!badge.earned && badge.progress && (
+                                        <Progress value={badge.progress} className="h-1 mt-1" />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeMainTab === 'simulator' && (
+                    <div className="space-y-6">
+                      <div>
+                        <h1 className="text-3xl font-bold mb-2" data-testid="text-simulator-title">
+                          Performance Simulator
+                        </h1>
+                        <p className="text-muted-foreground">
+                          Track hypothetical results based on our model picks
+                        </p>
+                      </div>
+
+                      <Card className="bg-yellow-500/10 border-yellow-500/50">
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0" />
+                          <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                            Simulation Only: All results shown are hypothetical. MVP does not accept bets or hold funds. Past simulated performance does not guarantee future results.
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      {simulatorData && (
+                        <>
+                          <Card className="bg-gradient-to-br from-success/20 to-primary/20 border-2 border-success">
+                            <CardContent className="p-8 text-center">
+                              <p className="text-lg text-muted-foreground mb-2">Hypothetical Gain This Month</p>
+                              <p className="text-5xl font-bold text-success mb-2" data-testid="text-total-hypothetical-gain">
+                                ${simulatorData.summary.totalHypotheticalGain.toLocaleString()}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Based on simulated ${simulatorData.summary.avgBetAmount} bets on each pick
+                              </p>
+                              <Badge variant="outline" className="mt-2 text-yellow-500 border-yellow-500">
+                                Hypothetical Results Only
+                              </Badge>
+                            </CardContent>
+                          </Card>
+
+                          <div className="grid md:grid-cols-4 gap-4">
+                            <Card>
+                              <CardContent className="p-4 text-center">
+                                <p className="text-sm text-muted-foreground">Total Picks</p>
+                                <p className="text-2xl font-bold">{simulatorData.summary.totalPicksTracked}</p>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4 text-center">
+                                <p className="text-sm text-muted-foreground">Hits</p>
+                                <p className="text-2xl font-bold text-success">{simulatorData.summary.hits}</p>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4 text-center">
+                                <p className="text-sm text-muted-foreground">Misses</p>
+                                <p className="text-2xl font-bold text-destructive">{simulatorData.summary.misses}</p>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4 text-center">
+                                <p className="text-sm text-muted-foreground">Hit Rate</p>
+                                <p className="text-2xl font-bold text-primary">{simulatorData.summary.hitRate}%</p>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-6">
+                            <Card>
+                              <CardHeader>
+                                <CardTitle>Recent Picks</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-3">
+                                  {simulatorData.recentPicks.map((pick, idx) => (
+                                    <div 
+                                      key={idx} 
+                                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                                      data-testid={`recent-pick-${idx}`}
+                                    >
+                                      <div>
+                                        <p className="font-medium">{pick.selection}</p>
+                                        <p className="text-sm text-muted-foreground">{pick.game}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <Badge variant={pick.result === 'hit' ? 'default' : 'destructive'}>
+                                          {pick.result === 'hit' ? 'HIT' : 'MISS'}
+                                        </Badge>
+                                        <p className={`text-sm font-bold mt-1 ${pick.hypotheticalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
+                                          {pick.hypotheticalGain >= 0 ? '+' : ''}${pick.hypotheticalGain} (simulated)
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader>
+                                <CardTitle>Performance Summary</CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <div className="flex justify-between p-3 rounded-lg bg-success/10">
+                                  <span>Best Day (Simulated)</span>
+                                  <span className="font-bold text-success">+${simulatorData.bestDay.hypotheticalGain}</span>
+                                </div>
+                                <div className="flex justify-between p-3 rounded-lg bg-destructive/10">
+                                  <span>Worst Day (Simulated)</span>
+                                  <span className="font-bold text-destructive">${simulatorData.worstDay.hypotheticalGain}</span>
+                                </div>
+                                <div className="flex justify-between p-3 rounded-lg bg-primary/10">
+                                  <span>Monthly ROI (Simulated)</span>
+                                  <span className="font-bold text-primary">{simulatorData.currentMonth.roi}%</span>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <Card>
+                            <CardContent className="p-4">
+                              <Button className="w-full" size="lg" data-testid="button-share-results">
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share My Simulated Results
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {activeMainTab === 'settings' && (
+                    <div className="space-y-6">
+                      <div>
+                        <h1 className="text-3xl font-bold mb-2" data-testid="text-settings-title">
+                          Settings
+                        </h1>
+                        <p className="text-muted-foreground">
+                          Manage your account preferences and notifications
+                        </p>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-6">
                         <Card>
-                          <CardContent className="p-4">
-                            <Button className="w-full" size="lg" data-testid="button-share-results">
-                              <Share2 className="h-4 w-4 mr-2" />
-                              Share My Results
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <User className="h-5 w-5" />
+                              Account
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                              <div>
+                                <p className="font-medium">Email Notifications</p>
+                                <p className="text-sm text-muted-foreground">Receive daily pick summaries</p>
+                              </div>
+                              <Button variant="outline" size="sm">Enable</Button>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                              <div>
+                                <p className="font-medium">Push Notifications</p>
+                                <p className="text-sm text-muted-foreground">Get alerts for high-value picks</p>
+                              </div>
+                              <Button variant="outline" size="sm">Enable</Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Bell className="h-5 w-5" />
+                              Alerts
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                              <div>
+                                <p className="font-medium">EV Threshold</p>
+                                <p className="text-sm text-muted-foreground">Minimum +EV% to alert</p>
+                              </div>
+                              <Badge>+5%</Badge>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                              <div>
+                                <p className="font-medium">Sports Filter</p>
+                                <p className="text-sm text-muted-foreground">Sports you want alerts for</p>
+                              </div>
+                              <Badge>All Sports</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Moon className="h-5 w-5" />
+                              Appearance
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                              <div>
+                                <p className="font-medium">Theme</p>
+                                <p className="text-sm text-muted-foreground">Toggle dark/light mode</p>
+                              </div>
+                              <ThemeToggle />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Settings className="h-5 w-5" />
+                              Subscription
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                              <div>
+                                <p className="font-medium">Current Plan</p>
+                                <p className="text-sm text-muted-foreground">Free tier</p>
+                              </div>
+                              <Badge variant="secondary">Free</Badge>
+                            </div>
+                            <Button className="w-full" data-testid="button-upgrade-settings">
+                              Upgrade to Pro
                             </Button>
                           </CardContent>
                         </Card>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {activeMainTab === 'settings' && (
-                  <div className="space-y-6">
-                    <div>
-                      <h1 className="text-3xl font-bold mb-2" data-testid="text-settings-title">
-                        Settings
-                      </h1>
-                      <p className="text-muted-foreground">
-                        Manage your account preferences and notifications
-                      </p>
+                      </div>
                     </div>
+                  )}
 
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <User className="h-5 w-5" />
-                            Account
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
-                            <div>
-                              <p className="font-medium">Email Notifications</p>
-                              <p className="text-sm text-muted-foreground">Receive daily pick summaries</p>
+                  <footer className="mt-12 pt-6 border-t" data-testid="legal-disclaimer-footer">
+                    <div className="flex flex-col items-center gap-6">
+                      <Card className="w-full bg-destructive/10 border-destructive/30">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Shield className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
+                            <div className="space-y-2">
+                              <p className="font-bold text-destructive">Important Notice</p>
+                              <p className="text-sm">
+                                MVP does NOT accept bets, wagers, or hold any user funds. This is an informational and entertainment platform only.
+                              </p>
                             </div>
-                            <Button variant="outline" size="sm">Enable</Button>
-                          </div>
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
-                            <div>
-                              <p className="font-medium">Push Notifications</p>
-                              <p className="text-sm text-muted-foreground">Get alerts for high-value picks</p>
-                            </div>
-                            <Button variant="outline" size="sm">Enable</Button>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Bell className="h-5 w-5" />
-                            Alerts
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
-                            <div>
-                              <p className="font-medium">EV Threshold</p>
-                              <p className="text-sm text-muted-foreground">Minimum +EV% to alert</p>
-                            </div>
-                            <Badge>+5%</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
-                            <div>
-                              <p className="font-medium">Sports Filter</p>
-                              <p className="text-sm text-muted-foreground">Sports you want alerts for</p>
-                            </div>
-                            <Badge>All Sports</Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <div className="flex items-center gap-2 text-warning">
+                        <AlertTriangle className="h-5 w-5" />
+                        <span className="font-semibold">Responsible Gambling</span>
+                      </div>
 
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Moon className="h-5 w-5" />
-                            Appearance
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
-                            <div>
-                              <p className="font-medium">Theme</p>
-                              <p className="text-sm text-muted-foreground">Toggle dark/light mode</p>
-                            </div>
-                            <ThemeToggle />
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Settings className="h-5 w-5" />
-                            Subscription
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
-                            <div>
-                              <p className="font-medium">Current Plan</p>
-                              <p className="text-sm text-muted-foreground">Free tier</p>
-                            </div>
-                            <Badge variant="secondary">Free</Badge>
-                          </div>
-                          <Button className="w-full" data-testid="button-upgrade-settings">
-                            Upgrade to Pro
-                          </Button>
-                        </CardContent>
-                      </Card>
+                      <div className="text-center text-sm text-muted-foreground space-y-3 max-w-2xl">
+                        <p>
+                          <strong>Legal Disclaimer:</strong> MVP is for entertainment and informational purposes only. 
+                          This platform does NOT facilitate real money betting. All performance tracking displays hypothetical results only.
+                        </p>
+                        <p>
+                          <strong>Confidence scores reflect model strength, not outcome certainty.</strong> Past simulated performance does not guarantee future results. 
+                          Sports betting involves significant risk. Never bet more than you can afford to lose. This is NOT financial advice.
+                        </p>
+                        <div className="flex items-center justify-center gap-2 p-4 rounded-lg bg-card border">
+                          <Phone className="h-5 w-5 text-warning" />
+                          <p className="font-bold text-lg">
+                            If you or someone you know has a gambling problem, call <span className="text-warning">1-800-GAMBLER</span>
+                          </p>
+                        </div>
+                        <p className="text-xs">
+                          Must be 21+ to participate in sports betting in most jurisdictions.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                <footer className="mt-12 pt-6 border-t" data-testid="legal-disclaimer-footer">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="flex items-center gap-2 text-warning">
-                      <AlertTriangle className="h-5 w-5" />
-                      <span className="font-semibold">Responsible Gambling</span>
-                    </div>
-                    <div className="text-center text-sm text-muted-foreground space-y-2 max-w-2xl">
-                      <p>
-                        <strong>Legal Disclaimer:</strong> MVP is for entertainment and informational purposes only. 
-                        This platform does NOT facilitate real money betting. All data shown is for analysis purposes.
-                      </p>
-                      <p>
-                        Past performance does not guarantee future results. Sports betting involves significant risk. 
-                        Never bet more than you can afford to lose. This is NOT financial advice.
-                      </p>
-                      <p>
-                        If you or someone you know has a gambling problem, call <strong>1-800-GAMBLER</strong> for help.
-                        Must be 21+ to participate in sports betting in most jurisdictions.
-                      </p>
-                    </div>
-                  </div>
-                </footer>
-              </div>
-            </ScrollArea>
-          </main>
+                  </footer>
+                </div>
+              </ScrollArea>
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </>
   );
 }

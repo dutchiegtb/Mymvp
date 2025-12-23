@@ -10,7 +10,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, TrendingUp, Bell, MessageSquare, DollarSign, Settings, User, Users, Wallet } from "lucide-react";
+import { Home, TrendingUp, Bell, MessageSquare, DollarSign, Settings, User, Users, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import SubscriptionBadge, { SubscriptionTier } from "./SubscriptionBadge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Top Picks", url: "/dashboard#picks", icon: TrendingUp },
   { title: "Social", url: "/dashboard#social", icon: Users },
-  { title: "Profits", url: "/dashboard#profits", icon: Wallet },
+  { title: "Simulator", url: "/dashboard#simulator", icon: BarChart3 },
   { title: "Pricing", url: "/#pricing", icon: DollarSign },
 ];
 
