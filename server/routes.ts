@@ -607,10 +607,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rewardAt: 10, // Next reward at 10 days
       },
       stats: {
-        totalWins: 127,
-        totalLosses: 38,
-        winRate: 77,
-        totalProfit: 2847,
+        totalHits: 127,
+        totalMisses: 38,
+        hitRate: 77,
+        totalHypotheticalGain: 2847,
       },
       badges: [
         { id: 'first_win', name: 'First Win', icon: '1', earned: true, earnedAt: '2024-01-05' },
@@ -634,36 +634,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leaderboard", (req: Request, res: Response) => {
     const timeframe = req.query.timeframe as string || 'weekly';
     
-    // Demo leaderboard data
+    // Demo leaderboard data (updated language for legal compliance)
     const leaderboards = {
       weekly: [
-        { rank: 1, username: 'SharpBettor', winRate: 89, profit: 4200, level: 28, streak: 12 },
-        { rank: 2, username: 'ValueHunter', winRate: 85, profit: 3100, level: 24, streak: 8 },
-        { rank: 3, username: 'BetMaster', winRate: 82, profit: 2800, level: 21, streak: 5 },
-        { rank: 4, username: 'OddsKing', winRate: 80, profit: 2400, level: 19, streak: 3 },
-        { rank: 5, username: 'EVHero', winRate: 78, profit: 2100, level: 17, streak: 6 },
-        { rank: 6, username: 'ParlayPro', winRate: 76, profit: 1800, level: 15, streak: 4 },
-        { rank: 7, username: 'LineWatcher', winRate: 74, profit: 1500, level: 14, streak: 2 },
-        { rank: 8, username: 'MoneyMaker', winRate: 72, profit: 1200, level: 12, streak: 1 },
-        { rank: 9, username: 'BetWise', winRate: 70, profit: 900, level: 10, streak: 0 },
-        { rank: 10, username: 'WinChaser', winRate: 68, profit: 600, level: 8, streak: 1 },
+        { rank: 1, username: 'SharpBettor', hitRate: 89, hypotheticalGain: 4200, level: 28, streak: 12 },
+        { rank: 2, username: 'ValueHunter', hitRate: 85, hypotheticalGain: 3100, level: 24, streak: 8 },
+        { rank: 3, username: 'BetMaster', hitRate: 82, hypotheticalGain: 2800, level: 21, streak: 5 },
+        { rank: 4, username: 'OddsKing', hitRate: 80, hypotheticalGain: 2400, level: 19, streak: 3 },
+        { rank: 5, username: 'EVHero', hitRate: 78, hypotheticalGain: 2100, level: 17, streak: 6 },
+        { rank: 6, username: 'ParlayPro', hitRate: 76, hypotheticalGain: 1800, level: 15, streak: 4 },
+        { rank: 7, username: 'LineWatcher', hitRate: 74, hypotheticalGain: 1500, level: 14, streak: 2 },
+        { rank: 8, username: 'MoneyMaker', hitRate: 72, hypotheticalGain: 1200, level: 12, streak: 1 },
+        { rank: 9, username: 'BetWise', hitRate: 70, hypotheticalGain: 900, level: 10, streak: 0 },
+        { rank: 10, username: 'WinChaser', hitRate: 68, hypotheticalGain: 600, level: 8, streak: 1 },
       ],
       monthly: [
-        { rank: 1, username: 'ProPicks', winRate: 91, profit: 12500, level: 35, streak: 18 },
-        { rank: 2, username: 'SharpBettor', winRate: 88, profit: 10200, level: 28, streak: 12 },
-        { rank: 3, username: 'ValueHunter', winRate: 86, profit: 8800, level: 24, streak: 8 },
+        { rank: 1, username: 'ProPicks', hitRate: 91, hypotheticalGain: 12500, level: 35, streak: 18 },
+        { rank: 2, username: 'SharpBettor', hitRate: 88, hypotheticalGain: 10200, level: 28, streak: 12 },
+        { rank: 3, username: 'ValueHunter', hitRate: 86, hypotheticalGain: 8800, level: 24, streak: 8 },
       ],
       allTime: [
-        { rank: 1, username: 'Legend', winRate: 88, profit: 45000, level: 50, streak: 0 },
-        { rank: 2, username: 'ProPicks', winRate: 87, profit: 38000, level: 45, streak: 18 },
-        { rank: 3, username: 'SharpBettor', winRate: 85, profit: 32000, level: 28, streak: 12 },
+        { rank: 1, username: 'Legend', hitRate: 88, hypotheticalGain: 45000, level: 50, streak: 0 },
+        { rank: 2, username: 'ProPicks', hitRate: 87, hypotheticalGain: 38000, level: 45, streak: 18 },
+        { rank: 3, username: 'SharpBettor', hitRate: 85, hypotheticalGain: 32000, level: 28, streak: 12 },
       ],
     };
     
     res.json({
+      disclaimer: 'Rankings reflect simulated tracking only. No real money wagers placed.',
       timeframe,
       leaderboard: leaderboards[timeframe as keyof typeof leaderboards] || leaderboards.weekly,
-      userRank: { rank: 156, username: 'You', winRate: 65, profit: 450, level: 12 },
+      userRank: { rank: 156, username: 'You', hitRate: 65, hypotheticalGain: 450, level: 12 },
     });
   });
 
@@ -674,18 +675,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/social/feed", (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     
-    // Demo social feed data
+    // Demo social feed data (updated language for legal compliance)
     const feed = [
       {
         id: '1',
         username: 'SharpBettor',
         level: 28,
-        action: 'parlay_win',
-        content: 'Just hit a 4-leg parlay!',
+        action: 'parlay_hit',
+        content: 'Just tracked a 4-leg parlay hit!',
         metadata: {
           legs: 4,
           odds: '+850',
-          profit: 850,
+          hypotheticalGain: 850,
         },
         likes: 89,
         comments: 15,
@@ -695,13 +696,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: '2',
         username: 'ValueHunter',
         level: 24,
-        action: 'big_win',
-        content: 'Lakers -3.5 cashed!',
+        action: 'model_hit',
+        content: 'Lakers -3.5 model pick hit!',
         metadata: {
           game: 'Lakers vs Warriors',
           selection: 'Lakers -3.5',
           ev: 12.5,
-          profit: 200,
+          hypotheticalGain: 200,
         },
         likes: 45,
         comments: 8,
@@ -760,45 +761,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // PROFIT TRACKER ROUTES
+  // PERFORMANCE SIMULATOR ROUTES (formerly Profit Tracker)
   // ═══════════════════════════════════════════════════════════════
   
-  app.get("/api/user/profit-tracker", (req: Request, res: Response) => {
-    // Demo profit tracker data - shows "what if" you bet on our picks
+  // Support both old and new endpoint names for backwards compatibility
+  app.get("/api/user/performance-simulator", (req: Request, res: Response) => {
+    // Demo performance simulator data - shows hypothetical "what if" results
     res.json({
+      disclaimer: 'All results are simulated. MVP does not accept bets or hold funds.',
       summary: {
-        totalPotentialProfit: 2847,
+        totalHypotheticalGain: 2847,
         totalPicksTracked: 165,
-        wins: 127,
-        losses: 38,
-        winRate: 77,
-        avgBetAmount: 100,
+        hits: 127,
+        misses: 38,
+        hitRate: 77,
+        simulatedBetAmount: 100,
       },
-      bestDay: { date: '2024-01-15', profit: 640, picks: 8 },
-      worstDay: { date: '2024-01-08', profit: -200, picks: 5 },
+      bestDay: { date: '2024-01-15', hypotheticalGain: 640, picks: 8 },
+      worstDay: { date: '2024-01-08', hypotheticalGain: -200, picks: 5 },
       currentMonth: {
-        profit: 2847,
-        wins: 35,
-        losses: 12,
+        hypotheticalGain: 2847,
+        hits: 35,
+        misses: 12,
         roi: 24.5,
       },
       recentPicks: [
-        { date: '2024-01-22', game: 'Lakers vs Warriors', selection: 'Lakers -3.5', result: 'win', profit: 91 },
-        { date: '2024-01-22', game: 'Chiefs vs Bills', selection: 'Chiefs ML', result: 'win', profit: 150 },
-        { date: '2024-01-21', game: 'Celtics vs Heat', selection: 'Celtics -5.5', result: 'loss', profit: -100 },
-        { date: '2024-01-21', game: '49ers vs Eagles', selection: 'Over 45.5', result: 'win', profit: 91 },
-        { date: '2024-01-20', game: 'Bucks vs Knicks', selection: 'Bucks ML', result: 'win', profit: 120 },
+        { date: '2024-01-22', game: 'Lakers vs Warriors', selection: 'Lakers -3.5', result: 'hit', hypotheticalGain: 91 },
+        { date: '2024-01-22', game: 'Chiefs vs Bills', selection: 'Chiefs ML', result: 'hit', hypotheticalGain: 150 },
+        { date: '2024-01-21', game: 'Celtics vs Heat', selection: 'Celtics -5.5', result: 'miss', hypotheticalGain: -100 },
+        { date: '2024-01-21', game: '49ers vs Eagles', selection: 'Over 45.5', result: 'hit', hypotheticalGain: 91 },
+        { date: '2024-01-20', game: 'Bucks vs Knicks', selection: 'Bucks ML', result: 'hit', hypotheticalGain: 120 },
       ],
       chartData: [
-        { date: '2024-01-16', profit: 150, cumulative: 150 },
-        { date: '2024-01-17', profit: 230, cumulative: 380 },
-        { date: '2024-01-18', profit: -100, cumulative: 280 },
-        { date: '2024-01-19', profit: 180, cumulative: 460 },
-        { date: '2024-01-20', profit: 320, cumulative: 780 },
-        { date: '2024-01-21', profit: -50, cumulative: 730 },
-        { date: '2024-01-22', profit: 241, cumulative: 971 },
+        { date: '2024-01-16', hypotheticalGain: 150, cumulative: 150 },
+        { date: '2024-01-17', hypotheticalGain: 230, cumulative: 380 },
+        { date: '2024-01-18', hypotheticalGain: -100, cumulative: 280 },
+        { date: '2024-01-19', hypotheticalGain: 180, cumulative: 460 },
+        { date: '2024-01-20', hypotheticalGain: 320, cumulative: 780 },
+        { date: '2024-01-21', hypotheticalGain: -50, cumulative: 730 },
+        { date: '2024-01-22', hypotheticalGain: 241, cumulative: 971 },
       ],
     });
+  });
+
+  // Backwards compatibility alias
+  app.get("/api/user/profit-tracker", (req: Request, res: Response) => {
+    res.redirect('/api/user/performance-simulator');
   });
 
   // ═══════════════════════════════════════════════════════════════
@@ -813,20 +821,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     let shareText = '';
     switch (type) {
-      case 'parlay_win':
-        shareText = `Just hit a ${data.legs}-leg parlay (${data.odds}) using MVP! Turned $${data.stake} into $${data.payout}`;
+      case 'parlay_hit':
+        shareText = `Tracked a ${data.legs}-leg parlay hit (${data.odds}) on MVP! Simulated $${data.stake} to $${data.payout}`;
         break;
-      case 'profit_summary':
-        shareText = `This month with MVP: ${data.winRate}% win rate, +$${data.profit} profit. Join the winning team!`;
+      case 'performance_summary':
+        shareText = `This month on MVP: ${data.hitRate}% model hit rate, +$${data.hypotheticalGain} simulated gain. Track your picks!`;
         break;
       case 'streak':
-        shareText = `${data.days}-day winning streak on MVP! Who else is riding the wave?`;
+        shareText = `${data.days}-day tracking streak on MVP! Following the model picks.`;
         break;
       case 'pick':
-        shareText = `My pick: ${data.selection} | ${data.odds} | ${data.ev}% EV. Found on MVP.`;
+        shareText = `Model pick: ${data.selection} | ${data.odds} | ${data.ev}% EV. Found on MVP.`;
         break;
       default:
-        shareText = 'Check out MVP - the smartest way to find value bets!';
+        shareText = 'Check out MVP - the smartest way to track sports predictions!';
     }
     
     res.json({
