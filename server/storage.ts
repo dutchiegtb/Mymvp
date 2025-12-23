@@ -168,7 +168,7 @@ export class DatabaseStorage implements IStorage {
 
   async clearExpiredPicks(): Promise<void> {
     const now = new Date();
-    await db.delete(topPicks).where(gt(now, topPicks.expiresAt));
+    await db.delete(topPicks).where(sql`${topPicks.expiresAt} < ${now}`);
   }
 
   // Parlays
