@@ -6,6 +6,8 @@ MVP is a sports betting odds comparison platform that scans 30+ sportsbooks in r
 
 **Version 2.0** now includes 40+ sports, Polymarket prediction markets, promo code system, ambassador program, and admin dashboard.
 
+**Legal Compliance (v2.1)**: Full 21+ age gate with disclaimer acceptance, renamed "Profit Tracker" to "Performance Simulator", all "win/profit" language replaced with "hit/hypothetical", prominent responsible gambling disclaimers. MVP does NOT accept bets or hold funds - all results are simulated.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -47,13 +49,13 @@ Preferred communication style: Simple, everyday language.
 - **Promo Codes**: Discount codes with percentage/fixed/trial_days types
 - **Ambassadors**: Referral program with commission tracking
 - **Bot Users/Alerts**: Discord/Telegram integration (schema ready)
-- **User Stats**: Gamification system with levels, XP, streaks, wins/losses tracking
+- **User Stats**: Gamification system with levels, XP, streaks, hits/misses tracking
 - **Badges**: Achievement badges with icons, categories, and XP rewards
 - **User Badges**: Junction table for earned badges per user
 - **User Follows**: Social follow relationships between users
-- **Social Posts**: Activity feed posts (parlay wins, milestones, picks shared)
+- **Social Posts**: Activity feed posts (parlay hits, milestones, picks shared)
 - **Post Likes/Comments**: Social engagement on feed posts
-- **Tracked Picks**: Profit tracker for "what if" calculation based on following picks
+- **Tracked Picks**: Performance simulator for "what if" calculation based on following picks
 
 ### External Services Integration
 - **The Odds API**: Primary data source for real-time odds from 30+ sportsbooks
