@@ -195,9 +195,9 @@ export const userStats = pgTable("user_stats", {
   currentStreak: integer("current_streak").default(0),
   longestStreak: integer("longest_streak").default(0),
   lastActiveDate: timestamp("last_active_date"),
-  totalHits: integer("total_hits").default(0),
-  totalMisses: integer("total_misses").default(0),
-  totalHypotheticalGain: decimal("total_hypothetical_gain").default("0"),
+  totalWins: integer("total_wins").default(0),
+  totalLosses: integer("total_losses").default(0),
+  totalProfit: decimal("total_profit").default("0"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

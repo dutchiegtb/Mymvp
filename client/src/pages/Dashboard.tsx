@@ -255,7 +255,7 @@ export default function Dashboard() {
   });
 
   const { data: simulatorData } = useQuery<SimulatorData>({
-    queryKey: ['/api/user/profit-tracker'],
+    queryKey: ['/api/user/performance-simulator'],
   });
 
   const SportIcon = ({ sport }: { sport: string }) => {
@@ -566,10 +566,10 @@ export default function Dashboard() {
                                     </div>
                                   </div>
                                   
-                                  {post.action === 'parlay_win' && (
+                                  {post.action === 'parlay_hit' && (
                                     <Badge className="bg-success text-success-foreground">Parlay Hit</Badge>
                                   )}
-                                  {post.action === 'big_win' && (
+                                  {post.action === 'model_hit' && (
                                     <Badge className="bg-primary">Model Hit</Badge>
                                   )}
                                   {post.action === 'streak_milestone' && (
@@ -579,9 +579,9 @@ export default function Dashboard() {
                                 
                                 <p className="mt-3 text-foreground">{post.content}</p>
                                 
-                                {post.metadata.profit && (
+                                {post.metadata.hypotheticalGain && (
                                   <div className="mt-2 p-2 bg-success/10 rounded-lg inline-block">
-                                    <span className="text-success font-bold">+${post.metadata.profit} (hypothetical)</span>
+                                    <span className="text-success font-bold">+${post.metadata.hypotheticalGain} (hypothetical)</span>
                                   </div>
                                 )}
                                 
