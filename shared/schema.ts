@@ -18,6 +18,11 @@ export const users = pgTable("users", {
   theme: varchar("theme", { length: 20 }).default("dark"),
   referredByCode: varchar("referred_by_code", { length: 50 }),
   isAdmin: boolean("is_admin").default(false),
+  role: varchar("role", { length: 20 }).default("user"), // 'user' | 'moderator' | 'admin'
+  isLifetime: boolean("is_lifetime").default(false),
+  ageVerified: boolean("age_verified").default(false),
+  disclaimerAccepted: boolean("disclaimer_accepted").default(false),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -190,9 +195,9 @@ export const userStats = pgTable("user_stats", {
   currentStreak: integer("current_streak").default(0),
   longestStreak: integer("longest_streak").default(0),
   lastActiveDate: timestamp("last_active_date"),
-  totalWins: integer("total_wins").default(0),
-  totalLosses: integer("total_losses").default(0),
-  totalProfit: decimal("total_profit").default("0"),
+  totalHits: integer("total_hits").default(0),
+  totalMisses: integer("total_misses").default(0),
+  totalHypotheticalGain: decimal("total_hypothetical_gain").default("0"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
