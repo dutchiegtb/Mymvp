@@ -6,6 +6,19 @@ import { calculateEV, calculateParlay, filterPicksBySport, getTopPicks, filterBy
 import { SUPPORTED_SPORTS, SPORTS_BY_CATEGORY, PREDICTION_CATEGORIES, type SportKey } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import Stripe from "stripe";
+
+// Initialize Stripe
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+// Subscription tier price mapping (you'll update these with your actual Stripe Price IDs)
+const STRIPE_PRICES: Record<string, { priceId: string; name: string; amount: number }> = {
+  web: { priceId: process.env.STRIPE_PRICE_WEB || 'price_web', name: 'Web Tier', amount: 999 },
+  premium: { priceId: process.env.STRIPE_PRICE_PREMIUM || 'price_premium', name: 'Premium Tier', amount: 1999 },
+  elite: { priceId: process.env.STRIPE_PRICE_ELITE || 'price_elite', name: 'Elite Tier', amount: 4999 },
+};
 
 // Admin key from environment (secure - no fallback)
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
@@ -417,6 +430,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Auth check error:', error);
       res.status(401).json({ error: 'Invalid token' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // STRIPE PAYMENT ROUTES
+  // ═══════════════════════════════════════════════════════════════
+
+  // Create checkout session for subscription
+  app.post("/api/stripe/create-checkout", async (req: Request, res: Response) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: 'Payment system not configured' });
+      }
+
+      const { tier, userId } = req.body;
+      
+      if (!tier || !STRIPE_PRICES[tier]) {
+        return res.status(400).json({ error: 'Invalid subscription tier' });
+      }
+
+      // Get user if userId provided
+      let customer: string | undefined;
+      let userEmail: string | undefined;
+      
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          userEmail = user.email;
+          if (user.stripeCustomerId) {
+            customer = user.stripeCustomerId;
+          }
+        }
+      }
+
+      const priceInfo = STRIPE_PRICES[tier];
+      
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'subscription',
+        customer: customer,
+        customer_email: customer ? undefined : userEmail,
+        line_items: [
+          {
+            price: priceInfo.priceId,
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          userId: userId?.toString() || '',
+          tier,
+        },
+        success_url: `${req.headers.origin || 'https://mvp.replit.app'}/dashboard?payment=success&tier=${tier}`,
+        cancel_url: `${req.headers.origin || 'https://mvp.replit.app'}/dashboard?payment=cancelled`,
+      });
+
+      res.json({ 
+        sessionId: session.id, 
+        url: session.url,
+      });
+    } catch (error) {
+      console.error('Stripe checkout error:', error);
+      res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+  });
+
+  // Get subscription status
+  app.get("/api/stripe/subscription/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      res.json({
+        tier: user.subscriptionTier,
+        status: user.subscriptionStatus,
+        stripeCustomerId: user.stripeCustomerId,
+      });
+    } catch (error) {
+      console.error('Subscription status error:', error);
+      res.status(500).json({ error: 'Failed to get subscription status' });
+    }
+  });
+
+  // Stripe webhook handler
+  app.post("/api/stripe/webhook", async (req: Request, res: Response) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: 'Payment system not configured' });
+      }
+
+      const sig = req.headers['stripe-signature'] as string;
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      
+      let event: Stripe.Event;
+
+      if (webhookSecret && sig) {
+        try {
+          event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+        } catch (err) {
+          console.error('Webhook signature verification failed:', err);
+          return res.status(400).json({ error: 'Webhook signature verification failed' });
+        }
+      } else {
+        // For testing without webhook secret
+        event = req.body as Stripe.Event;
+      }
+
+      // Handle the event
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const userId = session.metadata?.userId;
+          const tier = session.metadata?.tier;
+          
+          if (userId && tier) {
+            // Update user subscription
+            await storage.updateUserSubscription(parseInt(userId), tier, 'active');
+            
+            // Update stripe customer ID if new
+            if (session.customer) {
+              await storage.updateUserStripeCustomerId(parseInt(userId), session.customer as string);
+            }
+            
+            console.log(`✅ Subscription activated: User ${userId} -> ${tier}`);
+          }
+          break;
+        }
+        
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const customerId = subscription.customer as string;
+          
+          // Find user by stripe customer ID and update status
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            const status = subscription.status === 'active' ? 'active' : 'inactive';
+            await storage.updateUserSubscription(user.id, user.subscriptionTier || 'free', status);
+            console.log(`📝 Subscription updated: User ${user.id} -> ${status}`);
+          }
+          break;
+        }
+        
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const customerId = subscription.customer as string;
+          
+          // Find user and downgrade to free
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            await storage.updateUserSubscription(user.id, 'free', 'inactive');
+            console.log(`❌ Subscription cancelled: User ${user.id}`);
+          }
+          break;
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Webhook error:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  // Customer portal for managing subscription
+  app.post("/api/stripe/customer-portal", async (req: Request, res: Response) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: 'Payment system not configured' });
+      }
+
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({ error: 'No active subscription found' });
+      }
+
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${req.headers.origin || 'https://mvp.replit.app'}/dashboard`,
+      });
+
+      res.json({ url: portalSession.url });
+    } catch (error) {
+      console.error('Customer portal error:', error);
+      res.status(500).json({ error: 'Failed to create portal session' });
     }
   });
 
