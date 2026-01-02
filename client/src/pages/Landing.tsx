@@ -53,41 +53,54 @@ export default function Landing() {
       tierName: "Free",
       price: "$0",
       features: [
-        { name: "1-2 picks per day", included: true },
+        { name: "3 EV picks per day", included: true },
+        { name: "Basic sports (NFL, NBA, MLB, NHL)", included: true },
         { name: "Delayed data (15 min)", included: true },
-        { name: "Limited props", included: true },
-        { name: "EV rankings", included: false },
-        { name: "Live data", included: false },
-        { name: "Discord bot", included: false },
+        { name: "Parlay builder", included: false },
+        { name: "Social features", included: false },
+        { name: "Performance simulator", included: false },
       ],
       ctaText: "Get Started",
     },
     {
-      tierName: "Pro",
+      tierName: "Basic",
       price: "$9.99",
       features: [
-        { name: "All props & live data", included: true },
-        { name: "EV rankings", included: true },
-        { name: "Custom book filters", included: true },
-        { name: "Priority support", included: true },
-        { name: "Discord bot access", included: false },
-        { name: "Line movement alerts", included: false },
+        { name: "15 picks per day", included: true },
+        { name: "All 40+ sports", included: true },
+        { name: "Real-time data", included: true },
+        { name: "Parlay builder (2-leg max)", included: true },
+        { name: "Basic performance simulator", included: true },
+        { name: "Social features", included: false },
       ],
-      isPopular: true,
-      ctaText: "Start 7-Day Trial",
+      ctaText: "Subscribe",
     },
     {
       tierName: "Premium",
-      price: "$24.99",
+      price: "$19.99",
       features: [
-        { name: "Everything in Pro", included: true },
-        { name: "Sharp picks", included: true },
-        { name: "Discord bot access", included: true },
-        { name: "Line movement alerts", included: true },
-        { name: "Parlay builder", included: true },
-        { name: "Priority alerts", included: true },
+        { name: "Unlimited picks", included: true },
+        { name: "All sports + Polymarket", included: true },
+        { name: "Full parlay builder", included: true },
+        { name: "Social features & leaderboards", included: true },
+        { name: "Full performance simulator", included: true },
+        { name: "Priority support", included: true },
       ],
-      ctaText: "Start 7-Day Trial",
+      isPopular: true,
+      ctaText: "Subscribe",
+    },
+    {
+      tierName: "Elite",
+      price: "$49.99",
+      features: [
+        { name: "Everything in Premium", included: true },
+        { name: "Priority picks & early access", included: true },
+        { name: "Advanced analytics", included: true },
+        { name: "Elite member badge", included: true },
+        { name: "Direct support channel", included: true },
+        { name: "Beta feature access", included: true },
+      ],
+      ctaText: "Subscribe",
     },
   ];
 
@@ -160,7 +173,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {pricingTiers.map((tier, i) => (
               <PricingCard key={i} {...tier} />
             ))}
