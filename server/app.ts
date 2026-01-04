@@ -8,6 +8,8 @@ import express, {
 } from "express";
 
 import { registerRoutes } from "./routes";
+import { initializeDiscordBot, registerDiscordCommands } from "./services/discordBot";
+import { initializeTelegramBot } from "./services/telegramBot";
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -92,5 +94,9 @@ export default async function runApp(
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    initializeDiscordBot();
+    registerDiscordCommands();
+    initializeTelegramBot();
   });
 }

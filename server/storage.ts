@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, and, gt, desc, sql } from "drizzle-orm";
+import { eq, and, gt, desc, sql, isNotNull } from "drizzle-orm";
 import ws from "ws";
 import {
   users,
@@ -33,7 +33,12 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
+  getUserByDiscordId(discordUserId: string): Promise<User | undefined>;
+  getUserByTelegramChatId(telegramChatId: string): Promise<User | undefined>;
+  getUsersWithDiscord(): Promise<User[]>;
+  getUsersWithTelegram(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: number, updates: Partial<User>): Promise<User | undefined>;
   updateUserSubscription(userId: number, tier: string, status: string): Promise<User | undefined>;
   updateUserStripeCustomerId(userId: number, customerId: string): Promise<User | undefined>;
   
@@ -99,6 +104,36 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({
         stripeCustomerId: customerId,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async getUserByDiscordId(discordUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.discordUserId, discordUserId));
+    return user;
+  }
+
+  async getUserByTelegramChatId(telegramChatId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.telegramChatId, telegramChatId));
+    return user;
+  }
+
+  async getUsersWithDiscord(): Promise<User[]> {
+    return db.select().from(users).where(isNotNull(users.discordUserId));
+  }
+
+  async getUsersWithTelegram(): Promise<User[]> {
+    return db.select().from(users).where(isNotNull(users.telegramChatId));
+  }
+
+  async updateUser(userId: number, updates: Partial<User>): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({
+        ...updates,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))

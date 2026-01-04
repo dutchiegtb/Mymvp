@@ -27,6 +27,8 @@ Preferred communication style: Simple, everyday language.
 - **Dashboard** (`/dashboard`) - Main EV picks, top picks, parlay builder
 - **Login** (`/login`) - User sign in
 - **Register** (`/register`) - New account creation with promo code support
+- **Settings** (`/settings`) - Discord/Telegram bot linking, notification preferences
+- **Roadmap** (`/roadmap`) - Product roadmap with development phases
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express
@@ -61,6 +63,8 @@ Preferred communication style: Simple, everyday language.
 - **The Odds API**: Primary data source for real-time odds from 30+ sportsbooks
 - **Polymarket API**: Prediction markets data (politics, economics, entertainment)
 - **Stripe**: Payment processing for subscription tiers (customer ID stored on user)
+- **Discord Bot**: Real-time pick notifications for Premium+ subscribers (requires DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID)
+- **Telegram AI Bot**: AI-powered betting assistant for Elite subscribers (requires TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY)
 - **Supported Sports**: 40+ sports across 10 categories (see SPORTS_BY_CATEGORY in schema)
 
 ### Caching Strategy
