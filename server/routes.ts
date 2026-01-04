@@ -26,16 +26,32 @@ const STRIPE_PRICES: Record<string, { priceId: string; name: string; amount: num
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 const JWT_SECRET = process.env.SESSION_SECRET;
 
-// Middleware to require admin access
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!ADMIN_SECRET_KEY) {
-    return res.status(503).json({ error: 'Admin access not configured. Set ADMIN_SECRET_KEY environment variable.' });
-  }
+// Middleware to require admin access (via x-admin-key OR user.isAdmin with JWT)
+const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  // First check x-admin-key header
   const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== ADMIN_SECRET_KEY) {
-    return res.status(403).json({ error: 'Admin access required' });
+  if (ADMIN_SECRET_KEY && adminKey === ADMIN_SECRET_KEY) {
+    return next();
   }
-  next();
+  
+  // Then check if user is authenticated via JWT and is admin
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ') && JWT_SECRET) {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      const user = await storage.getUser(decoded.userId);
+      
+      if (user?.isAdmin) {
+        (req as any).user = user;
+        return next();
+      }
+    }
+  } catch (error) {
+    // JWT verification failed, continue to return 403
+  }
+  
+  return res.status(403).json({ error: 'Admin access required' });
 };
 
 // In-memory cache for odds data (refreshed periodically)
@@ -831,7 +847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Get system stats
+  // Admin: Get system stats (old format)
   app.get("/api/admin/stats", requireAdmin, async (req: Request, res: Response) => {
     try {
       res.json({
@@ -860,6 +876,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+  });
+
+  // Admin: Dashboard stats (for frontend admin dashboard)
+  app.get("/api/admin/dashboard", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      // Get real user counts from database
+      const allUsers = await storage.getAllUsers();
+      
+      const userCounts = {
+        total: allUsers.length,
+        elite: allUsers.filter(u => u.subscriptionTier === 'elite').length,
+        premium: allUsers.filter(u => u.subscriptionTier === 'premium').length,
+        basic: allUsers.filter(u => u.subscriptionTier === 'basic' || u.subscriptionTier === 'web').length,
+        free: allUsers.filter(u => u.subscriptionTier === 'free' || !u.subscriptionTier).length,
+      };
+      
+      // Calculate MRR
+      const mrr = 
+        (userCounts.elite * 49.99) + 
+        (userCounts.premium * 19.99) + 
+        (userCounts.basic * 9.99);
+      
+      // Count bot connections
+      const discordConnected = allUsers.filter(u => u.discordUserId).length;
+      const telegramConnected = allUsers.filter(u => u.telegramChatId).length;
+      
+      res.json({
+        users: userCounts,
+        revenue: {
+          mrr: Math.round(mrr * 100) / 100,
+          today: 0,
+        },
+        bots: {
+          discordConnected,
+          telegramConnected,
+        },
+        api: {
+          oddsRequests: 24,
+          lastRefresh: cachedOdds.lastUpdated.toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error('Admin dashboard error:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard stats' });
     }
   });
 

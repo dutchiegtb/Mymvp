@@ -29,6 +29,7 @@ Preferred communication style: Simple, everyday language.
 - **Register** (`/register`) - New account creation with promo code support
 - **Settings** (`/settings`) - Discord/Telegram bot linking, notification preferences
 - **Roadmap** (`/roadmap`) - Product roadmap with development phases
+- **Admin** (`/admin`) - Admin dashboard for system monitoring (requires isAdmin)
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express

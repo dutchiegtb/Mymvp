@@ -37,6 +37,7 @@ export interface IStorage {
   getUserByTelegramChatId(telegramChatId: string): Promise<User | undefined>;
   getUsersWithDiscord(): Promise<User[]>;
   getUsersWithTelegram(): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(userId: number, updates: Partial<User>): Promise<User | undefined>;
   updateUserSubscription(userId: number, tier: string, status: string): Promise<User | undefined>;
@@ -127,6 +128,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUsersWithTelegram(): Promise<User[]> {
     return db.select().from(users).where(isNotNull(users.telegramChatId));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users);
   }
 
   async updateUser(userId: number, updates: Partial<User>): Promise<User | undefined> {
