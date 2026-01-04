@@ -465,6 +465,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ═══════════════════════════════════════════════════════════════
+  // AMBASSADOR ROUTES
+  // ═══════════════════════════════════════════════════════════════
+
+  app.get("/api/admin/ambassadors", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadors = await storage.getAllAmbassadors();
+      // Fetch user details for each ambassador
+      const ambassadorsWithUser = await Promise.all(ambassadors.map(async (amb) => {
+        const user = await storage.getUser(amb.userId!);
+        return {
+          ...amb,
+          user: user ? { email: user.email, username: user.username } : null
+        };
+      }));
+      res.json(ambassadorsWithUser);
+    } catch (error) {
+      console.error("Error fetching ambassadors:", error);
+      res.status(500).json({ error: "Failed to fetch ambassadors" });
+    }
+  });
+
+  app.post("/api/admin/ambassador/create", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { userId, referralCode, commissionPercent } = req.body;
+      
+      if (!userId || !referralCode) {
+        return res.status(400).json({ error: "User ID and referral code are required" });
+      }
+
+      const existingAmbassador = await storage.getAmbassadorByUserId(userId);
+      if (existingAmbassador) {
+        return res.status(400).json({ error: "User is already an ambassador" });
+      }
+
+      const newAmbassador = await storage.createAmbassador({
+        userId,
+        referralCode: referralCode.toUpperCase(),
+        commissionPercent: commissionPercent?.toString() || "10",
+        active: true
+      });
+
+      res.json(newAmbassador);
+    } catch (error) {
+      console.error("Error creating ambassador:", error);
+      res.status(500).json({ error: "Failed to create ambassador" });
+    }
+  });
+
+  app.post("/api/admin/ambassadors/:id/payout", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadorId = parseInt(req.params.id);
+      const { amount, payoutMethod } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Invalid payout amount" });
+      }
+
+      const payout = await storage.createAmbassadorPayout({
+        ambassadorId,
+        amount: amount.toString(),
+        payoutMethod: payoutMethod || 'manual',
+        status: 'pending',
+        notes: 'Manual payout processed via admin dashboard'
+      });
+
+      res.json(payout);
+    } catch (error) {
+      console.error("Error processing payout:", error);
+      res.status(500).json({ error: "Failed to process payout" });
+    }
+  });
+
+  app.get("/api/admin/ambassadors/:id/payouts", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadorId = parseInt(req.params.id);
+      const payouts = await storage.getAmbassadorPayouts(ambassadorId);
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching payouts:", error);
+      res.status(500).json({ error: "Failed to fetch payouts" });
+    }
+  });
+
+  app.patch("/api/admin/payouts/:id/complete", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const payoutId = parseInt(req.params.id);
+      const { reference = 'Completed by Admin' } = req.body;
+
+      await storage.markAmbassadorPayoutCompleted(payoutId, reference);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error completing payout:", error);
+      res.status(500).json({ error: "Failed to complete payout" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
   // AUTH ROUTES
   // ═══════════════════════════════════════════════════════════════
   
@@ -787,6 +884,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             console.log(`✅ Subscription activated: User ${userId} -> ${tier}`);
+            
+            // Check for ambassador referral and credit commission
+            try {
+              const user = await storage.getUser(parseInt(userId));
+              if (user?.referredByCode) {
+                const ambassador = await storage.getAmbassadorByCode(user.referredByCode);
+                if (ambassador && ambassador.active) {
+                  // Get subscription amount from tier
+                  const tierInfo = STRIPE_PRICES[tier];
+                  const subscriptionAmount = tierInfo ? tierInfo.amount / 100 : 0; // Convert cents to dollars
+                  
+                  // Calculate commission
+                  const commissionPercent = parseFloat(ambassador.commissionPercent?.toString() || '10');
+                  const commissionEarned = subscriptionAmount * (commissionPercent / 100);
+                  
+                  if (commissionEarned > 0) {
+                    // Update ambassador earnings
+                    await storage.updateAmbassadorEarnings(ambassador.id, commissionEarned);
+                    
+                    // Create referral record
+                    await storage.createAmbassadorReferral(
+                      ambassador.id,
+                      parseInt(userId),
+                      subscriptionAmount,
+                      commissionEarned
+                    );
+                    
+                    console.log(`💰 Ambassador ${ambassador.referralCode} credited $${commissionEarned.toFixed(2)} for referral (${tier})`);
+                  }
+                }
+              }
+            } catch (ambassadorError) {
+              console.error('Error processing ambassador referral:', ambassadorError);
+              // Don't fail the webhook for ambassador errors
+            }
           }
           break;
         }
@@ -1042,19 +1174,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Email and referral code required' });
       }
       
-      // TODO: Create ambassador in database
+      // Find user by email
+      const user = await storage.getUserByEmail(email.toLowerCase());
+      if (!user) {
+        return res.status(404).json({ error: 'User with this email not found' });
+      }
+      
+      // Check if ambassador already exists
+      const existingAmbassador = await storage.getAmbassadorByUserId(user.id);
+      if (existingAmbassador) {
+        return res.status(400).json({ error: 'User is already an ambassador' });
+      }
+      
+      // Check if referral code is already taken
+      const existingCode = await storage.getAmbassadorByCode(referralCode);
+      if (existingCode) {
+        return res.status(400).json({ error: 'Referral code already in use' });
+      }
+      
+      // Create ambassador in database
+      const ambassador = await storage.createAmbassador({
+        userId: user.id,
+        referralCode: referralCode.toUpperCase(),
+        commissionPercent: commissionPercent?.toString() || '10',
+        active: true,
+      });
+      
+      console.log(`✅ Ambassador created: ${email} with code ${referralCode.toUpperCase()}`);
       
       res.json({
         success: true,
         ambassador: {
+          id: ambassador.id,
           email,
-          referralCode: referralCode.toUpperCase(),
-          commissionPercent: commissionPercent || 10,
-          active: true,
+          referralCode: ambassador.referralCode,
+          commissionPercent: ambassador.commissionPercent,
+          active: ambassador.active,
         }
       });
     } catch (error) {
+      console.error('Failed to create ambassador:', error);
       res.status(500).json({ error: 'Failed to create ambassador' });
+    }
+  });
+
+  // Admin: List all ambassadors
+  app.get("/api/admin/ambassadors", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadorsList = await storage.getAllAmbassadors();
+      
+      // Enrich with user data
+      const enrichedAmbassadors = await Promise.all(
+        ambassadorsList.map(async (ambassador) => {
+          const user = ambassador.userId ? await storage.getUser(ambassador.userId) : null;
+          return {
+            ...ambassador,
+            email: user?.email,
+            username: user?.username,
+          };
+        })
+      );
+      
+      res.json(enrichedAmbassadors);
+    } catch (error) {
+      console.error('Failed to fetch ambassadors:', error);
+      res.status(500).json({ error: 'Failed to fetch ambassadors' });
+    }
+  });
+
+  // Admin: Get payout history for an ambassador
+  app.get("/api/admin/ambassadors/:id/payouts", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadorId = parseInt(req.params.id);
+      
+      if (isNaN(ambassadorId)) {
+        return res.status(400).json({ error: 'Invalid ambassador ID' });
+      }
+      
+      const payouts = await storage.getAmbassadorPayouts(ambassadorId);
+      res.json(payouts);
+    } catch (error) {
+      console.error('Failed to fetch ambassador payouts:', error);
+      res.status(500).json({ error: 'Failed to fetch payouts' });
+    }
+  });
+
+  // Admin: Create a new payout record
+  app.post("/api/admin/ambassadors/:id/payout", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadorId = parseInt(req.params.id);
+      const { amount, payoutMethod, notes, periodStart, periodEnd } = req.body;
+      
+      if (isNaN(ambassadorId)) {
+        return res.status(400).json({ error: 'Invalid ambassador ID' });
+      }
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({ error: 'Valid amount required' });
+      }
+      
+      const payout = await storage.createAmbassadorPayout({
+        ambassadorId,
+        amount: amount.toString(),
+        payoutMethod: payoutMethod || 'manual',
+        notes,
+        periodStart: periodStart ? new Date(periodStart) : undefined,
+        periodEnd: periodEnd ? new Date(periodEnd) : undefined,
+        status: 'pending',
+      });
+      
+      console.log(`✅ Payout created for ambassador ${ambassadorId}: $${amount}`);
+      
+      res.json({
+        success: true,
+        payout,
+      });
+    } catch (error) {
+      console.error('Failed to create payout:', error);
+      res.status(500).json({ error: 'Failed to create payout' });
+    }
+  });
+
+  // Admin: Mark payout as completed
+  app.patch("/api/admin/payouts/:id/complete", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const payoutId = parseInt(req.params.id);
+      const { reference } = req.body;
+      
+      if (isNaN(payoutId)) {
+        return res.status(400).json({ error: 'Invalid payout ID' });
+      }
+      
+      if (!reference) {
+        return res.status(400).json({ error: 'Payment reference required' });
+      }
+      
+      await storage.markAmbassadorPayoutCompleted(payoutId, reference);
+      
+      console.log(`✅ Payout ${payoutId} marked as completed with reference: ${reference}`);
+      
+      res.json({
+        success: true,
+        message: 'Payout marked as completed',
+      });
+    } catch (error) {
+      console.error('Failed to complete payout:', error);
+      res.status(500).json({ error: 'Failed to complete payout' });
     }
   });
 

@@ -8,10 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ArrowLeft, Users, DollarSign, Activity, RefreshCw, 
-  MessageSquare, Gift, TrendingUp, Crown, Shield
+  MessageSquare, Gift, TrendingUp, Crown, Shield,
+  BadgeDollarSign, History, CheckCircle2, Clock, XCircle, Plus
 } from "lucide-react";
 import { SiDiscord, SiTelegram } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { queryClient } from "@/lib/queryClient";
 
 interface UserData {
   id: number;
@@ -20,6 +23,29 @@ interface UserData {
   isAdmin?: boolean;
   subscriptionTier: string;
   role?: string;
+}
+
+interface Ambassador {
+  id: number;
+  userId: number;
+  referralCode: string;
+  commissionPercent: string;
+  totalEarnings: string;
+  pendingPayout: string;
+  user?: {
+    email: string;
+    username: string;
+  };
+}
+
+interface Payout {
+  id: number;
+  ambassadorId: number;
+  amount: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  createdAt: string;
+  payoutReference?: string;
+  payoutMethod: string;
 }
 
 interface AdminStats {

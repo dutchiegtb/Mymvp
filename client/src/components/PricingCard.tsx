@@ -11,6 +11,7 @@ interface PricingCardProps {
   tierName: string;
   price: string;
   priceSubtext?: string;
+  description?: string;
   features: Feature[];
   isPopular?: boolean;
   ctaText?: string;
@@ -20,6 +21,7 @@ export default function PricingCard({
   tierName,
   price,
   priceSubtext = "/month",
+  description,
   features,
   isPopular = false,
   ctaText = "Get Started",
@@ -42,6 +44,9 @@ export default function PricingCard({
           <div className="text-4xl font-bold" data-testid="text-price">{price}</div>
           <div className="text-sm text-muted-foreground">{priceSubtext}</div>
         </div>
+        {description && (
+          <p className="text-sm text-muted-foreground pt-2">{description}</p>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="space-y-3">

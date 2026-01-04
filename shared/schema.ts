@@ -317,6 +317,9 @@ export const trackedPicks = pgTable("tracked_picks", {
   settledAt: timestamp("settled_at"),
 });
 
+// Payout type for formatting
+export type PayoutStatus = "pending" | "processing" | "completed" | "failed";
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
