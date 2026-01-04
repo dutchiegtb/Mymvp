@@ -1,8 +1,11 @@
-import { Link } from "wouter";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
+import { apiRequest } from "@/lib/queryClient";
 import {
   TrendingUp,
   Crown,
@@ -21,10 +24,62 @@ import {
   BarChart3,
   Clock,
   Shield,
+  Loader2,
 } from "lucide-react";
 import { SiDiscord, SiTelegram } from "react-icons/si";
 
 export default function AmbassadorProgram() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+
+  // Get user from localStorage if logged in
+  const getUserId = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.userId;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleBecomeAmbassador = async () => {
+    const userId = getUserId();
+    
+    if (!userId) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in or create an account first to become an ambassador.",
+        variant: "destructive",
+      });
+      navigate('/register');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiRequest('POST', '/api/stripe/create-ambassador-checkout', {
+        userId,
+      });
+      
+      if (response.url) {
+        window.location.href = response.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error: any) {
+      const message = error?.message || 'Failed to start checkout';
+      toast({
+        title: "Checkout Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const commissionTiers = [
     { tier: "Basic", price: "$9.99/mo", earnings: "$2.00/mo" },
     { tier: "Premium", price: "$19.99/mo", earnings: "$4.00/mo" },
@@ -133,9 +188,19 @@ export default function AmbassadorProgram() {
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button size="lg" className="text-lg px-8" data-testid="button-become-ambassador">
-                <Crown className="w-5 h-5 mr-2" />
-                Become an Ambassador - $749
+              <Button 
+                size="lg" 
+                className="text-lg px-8" 
+                data-testid="button-become-ambassador"
+                onClick={handleBecomeAmbassador}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Crown className="w-5 h-5 mr-2" />
+                )}
+                {isLoading ? 'Processing...' : 'Become an Ambassador - $749'}
               </Button>
               <Button size="lg" variant="outline" className="text-lg px-8" data-testid="button-see-success-stories">
                 See Success Stories
@@ -488,9 +553,19 @@ export default function AmbassadorProgram() {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-            <Button size="lg" className="text-lg px-8" data-testid="button-join-ambassador">
-              <Crown className="w-5 h-5 mr-2" />
-              Become an Ambassador - $749
+            <Button 
+              size="lg" 
+              className="text-lg px-8" 
+              data-testid="button-join-ambassador"
+              onClick={handleBecomeAmbassador}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <Crown className="w-5 h-5 mr-2" />
+              )}
+              {isLoading ? 'Processing...' : 'Become an Ambassador - $749'}
             </Button>
           </div>
 
