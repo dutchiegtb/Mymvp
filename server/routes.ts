@@ -7,6 +7,8 @@ import { SUPPORTED_SPORTS, SPORTS_BY_CATEGORY, PREDICTION_CATEGORIES, type Sport
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
+import discordRoutes from "./discordRoutes";
+import telegramRoutes from "./telegramRoutes";
 
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -1120,6 +1122,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // ═══════════════════════════════════════════════════════════════
+  // DISCORD & TELEGRAM BOT ROUTES
+  // ═══════════════════════════════════════════════════════════════
+  app.use("/api/discord", discordRoutes);
+  app.use("/api/telegram", telegramRoutes);
+
   // Initialize odds cache on startup
   refreshOddsCache();
   
@@ -1128,6 +1136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   console.log("📊 MVP API routes registered");
   console.log("🔄 Odds cache will refresh every 5 minutes");
+  console.log("🤖 Discord & Telegram bot routes registered");
 
   const httpServer = createServer(app);
   return httpServer;
