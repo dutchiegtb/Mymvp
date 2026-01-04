@@ -31,6 +31,8 @@ export const users = pgTable("users", {
   telegramUsername: varchar("telegram_username", { length: 255 }),
   // Notification Preferences
   notificationSettings: jsonb("notification_settings"),
+  // Preferred Sportsbooks (for marketing/community data)
+  preferredSportsbooks: text("preferred_sportsbooks").array(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
