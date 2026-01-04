@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, and, gt, desc, sql, isNotNull } from "drizzle-orm";
+import { eq, and, gt, gte, desc, sql, isNotNull } from "drizzle-orm";
 import ws from "ws";
 import {
   users,
@@ -87,7 +87,7 @@ export interface IStorage {
   getAmbassadorPayouts(ambassadorId?: number): Promise<AmbassadorPayout[]>;
   createAmbassadorPayout(data: InsertAmbassadorPayout): Promise<AmbassadorPayout>;
   markAmbassadorPayoutCompleted(payoutId: number, reference: string): Promise<void>;
-  createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number): Promise<void>;
+  createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number, subscriptionTier?: string): Promise<void>;
   
   // Badges
   getBadgeByKey(key: string): Promise<Badge | undefined>;
@@ -99,6 +99,8 @@ export interface IStorage {
   // Referral Stats
   getAmbassadorReferrals(ambassadorId: number): Promise<any[]>;
   getAmbassadorStats(): Promise<{ ambassadorId: number; referralCount: number; totalCommission: number }[]>;
+  checkAndAwardBonusMilestones(ambassadorId: number): Promise<{ bonusType: string; amount: number } | null>;
+  updateAmbassadorTier(ambassadorId: number): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -365,10 +367,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(ambassadorPayouts.id, payoutId));
   }
 
-  async createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number): Promise<void> {
+  async createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number, subscriptionTier?: string): Promise<void> {
     await db.insert(ambassadorReferrals).values({
       ambassadorId,
       referredUserId,
+      subscriptionTier: subscriptionTier || null,
       subscriptionAmount: subscriptionAmount.toString(),
       commissionEarned: commissionEarned.toString(),
       status: 'pending',
@@ -491,6 +494,97 @@ export class DatabaseStorage implements IStorage {
       referralCount: s.referralCount,
       totalCommission: s.totalCommission,
     }));
+  }
+
+  async checkAndAwardBonusMilestones(ambassadorId: number): Promise<{ bonusType: string; amount: number } | null> {
+    const [ambassador] = await db.select().from(ambassadors).where(eq(ambassadors.id, ambassadorId));
+    if (!ambassador) return null;
+
+    const totalReferrals = ambassador.totalReferrals || 0;
+
+    // Check milestones in order (highest first to award the most valuable unclaimed)
+    if (totalReferrals >= 100 && !ambassador.bonus100Referrals) {
+      await db.update(ambassadors).set({
+        bonus100Referrals: true,
+        totalBonusEarned: sql`COALESCE(${ambassadors.totalBonusEarned}, 0) + 1500`,
+        pendingPayout: sql`COALESCE(${ambassadors.pendingPayout}, 0) + 1500`,
+      }).where(eq(ambassadors.id, ambassadorId));
+      return { bonusType: '100_referrals', amount: 1500 };
+    }
+
+    if (totalReferrals >= 50 && !ambassador.bonus50Referrals) {
+      await db.update(ambassadors).set({
+        bonus50Referrals: true,
+        totalBonusEarned: sql`COALESCE(${ambassadors.totalBonusEarned}, 0) + 500`,
+        pendingPayout: sql`COALESCE(${ambassadors.pendingPayout}, 0) + 500`,
+      }).where(eq(ambassadors.id, ambassadorId));
+      return { bonusType: '50_referrals', amount: 500 };
+    }
+
+    if (totalReferrals >= 25 && !ambassador.bonus25Referrals) {
+      await db.update(ambassadors).set({
+        bonus25Referrals: true,
+        totalBonusEarned: sql`COALESCE(${ambassadors.totalBonusEarned}, 0) + 300`,
+        pendingPayout: sql`COALESCE(${ambassadors.pendingPayout}, 0) + 300`,
+      }).where(eq(ambassadors.id, ambassadorId));
+      return { bonusType: '25_referrals', amount: 300 };
+    }
+
+    // Check 5 Elite users in 30 days bonus
+    // Matches both 'elite' and any elite-variant tiers
+    if (!ambassador.bonus5Elite) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const eliteReferralsResult = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(ambassadorReferrals)
+        .where(
+          and(
+            eq(ambassadorReferrals.ambassadorId, ambassadorId),
+            sql`LOWER(${ambassadorReferrals.subscriptionTier}) LIKE '%elite%'`,
+            gte(ambassadorReferrals.createdAt, thirtyDaysAgo)
+          )
+        );
+      
+      const eliteCount = eliteReferralsResult[0]?.count || 0;
+      
+      if (eliteCount >= 5) {
+        await db.update(ambassadors).set({
+          bonus5Elite: true,
+          eliteReferrals30Days: eliteCount,
+          totalBonusEarned: sql`COALESCE(${ambassadors.totalBonusEarned}, 0) + 150`,
+          pendingPayout: sql`COALESCE(${ambassadors.pendingPayout}, 0) + 150`,
+        }).where(eq(ambassadors.id, ambassadorId));
+        return { bonusType: '5_elite_30_days', amount: 150 };
+      }
+    }
+
+    return null;
+  }
+
+  async updateAmbassadorTier(ambassadorId: number): Promise<string> {
+    const [ambassador] = await db.select().from(ambassadors).where(eq(ambassadors.id, ambassadorId));
+    if (!ambassador) return 'rookie';
+
+    const totalReferrals = ambassador.totalReferrals || 0;
+    let newTier = 'rookie';
+
+    if (totalReferrals >= 100) {
+      newTier = 'icon';
+    } else if (totalReferrals >= 51) {
+      newTier = 'legend';
+    } else if (totalReferrals >= 26) {
+      newTier = 'elite';
+    } else if (totalReferrals >= 11) {
+      newTier = 'pro';
+    }
+
+    if (newTier !== ambassador.tier) {
+      await db.update(ambassadors).set({ tier: newTier }).where(eq(ambassadors.id, ambassadorId));
+    }
+
+    return newTier;
   }
 }
 

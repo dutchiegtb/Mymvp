@@ -1051,15 +1051,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     // Update ambassador earnings
                     await storage.updateAmbassadorEarnings(ambassador.id, commissionEarned);
                     
-                    // Create referral record
+                    // Create referral record with tier for bonus tracking
                     await storage.createAmbassadorReferral(
                       ambassador.id,
                       parseInt(userId),
                       subscriptionAmount,
-                      commissionEarned
+                      commissionEarned,
+                      tier
                     );
                     
                     console.log(`💰 Ambassador ${ambassador.referralCode} credited $${commissionEarned.toFixed(2)} for referral (${tier})`);
+                    
+                    // Check for bonus milestones
+                    const bonus = await storage.checkAndAwardBonusMilestones(ambassador.id);
+                    if (bonus) {
+                      console.log(`🎁 Ambassador ${ambassador.referralCode} earned $${bonus.amount} bonus for ${bonus.bonusType}!`);
+                    }
+                    
+                    // Update ambassador tier
+                    const newTier = await storage.updateAmbassadorTier(ambassador.id);
+                    console.log(`📊 Ambassador ${ambassador.referralCode} tier: ${newTier}`);
                   }
                 }
               }
