@@ -23,6 +23,14 @@ export const users = pgTable("users", {
   ageVerified: boolean("age_verified").default(false),
   disclaimerAccepted: boolean("disclaimer_accepted").default(false),
   onboardingCompleted: boolean("onboarding_completed").default(false),
+  // Discord Bot Integration
+  discordUserId: varchar("discord_user_id", { length: 255 }),
+  discordUsername: varchar("discord_username", { length: 255 }),
+  // Telegram Bot Integration
+  telegramChatId: varchar("telegram_chat_id", { length: 255 }),
+  telegramUsername: varchar("telegram_username", { length: 255 }),
+  // Notification Preferences
+  notificationSettings: jsonb("notification_settings"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
