@@ -333,6 +333,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Create new user account
+  app.post("/api/admin/users", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const { email, username, password, role, subscriptionTier } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "A user with this email already exists" });
+      }
+
+      // Check if username already exists (if provided)
+      if (username) {
+        const existingUsername = await storage.getUserByUsername(username);
+        if (existingUsername) {
+          return res.status(409).json({ error: "A user with this username already exists" });
+        }
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // Validate tier and role
+      const validTiers = ['free', 'basic', 'web', 'premium', 'elite', 'ambassador', 'lifetime_elite'];
+      const validRoles = ['user', 'moderator', 'admin', 'super_admin'];
+      
+      const finalTier = validTiers.includes(subscriptionTier) ? subscriptionTier : 'free';
+      const finalRole = validRoles.includes(role) ? role : 'user';
+      const isAdmin = finalRole === 'admin' || finalRole === 'super_admin';
+      const isLifetime = finalTier === 'lifetime_elite';
+
+      const newUser = await storage.createUser({
+        email,
+        username: username || null,
+        passwordHash,
+        role: finalRole,
+        subscriptionTier: finalTier,
+        subscriptionStatus: finalTier === 'free' ? 'inactive' : 'active',
+        isAdmin,
+        isLifetime,
+      });
+
+      console.log(`✅ Super admin created new user: ${email} (role: ${finalRole}, tier: ${finalTier})`);
+      const { passwordHash: _, ...sanitizedUser } = newUser;
+      res.status(201).json(sanitizedUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
   // Ambassador: Get current user's ambassador profile
   app.get("/api/ambassador/me", async (req: Request, res: Response) => {
     try {
