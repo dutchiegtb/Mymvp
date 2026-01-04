@@ -192,6 +192,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
             <TabsTrigger value="users" data-testid="tab-users">Users</TabsTrigger>
             <TabsTrigger value="promos" data-testid="tab-promos">Promo Codes</TabsTrigger>
+            <TabsTrigger value="ambassadors" data-testid="tab-ambassadors">Ambassadors</TabsTrigger>
             <TabsTrigger value="bots" data-testid="tab-bots">Bot Status</TabsTrigger>
           </TabsList>
 
@@ -241,6 +242,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="promos">
             <PromoManagement />
+          </TabsContent>
+
+          <TabsContent value="ambassadors">
+            <AmbassadorManagement />
           </TabsContent>
 
           <TabsContent value="bots">
@@ -461,6 +466,328 @@ function PromoManagement() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function AmbassadorCard({ 
+  ambassador, 
+  isSuperAdmin, 
+  onRefresh 
+}: { 
+  ambassador: Ambassador; 
+  isSuperAdmin: boolean; 
+  onRefresh: () => void;
+}) {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  
+  const { data: referrals, refetch: refetchReferrals } = useQuery<any[]>({
+    queryKey: ["/api/admin/ambassadors", ambassador.id, "referrals"],
+    enabled: expanded,
+  });
+
+  const { data: payouts, refetch: refetchPayouts } = useQuery<Payout[]>({
+    queryKey: ["/api/admin/ambassadors", ambassador.id, "payouts"],
+    enabled: expanded,
+  });
+
+  const pendingAmount = parseFloat(ambassador.pendingPayout || '0');
+  const totalEarnings = parseFloat(ambassador.totalEarnings || '0');
+
+  const processPayout = async () => {
+    if (!isSuperAdmin || pendingAmount <= 0) return;
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem("mvp_token");
+      const response = await fetch(`/api/admin/ambassadors/${ambassador.id}/payout`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ amount: pendingAmount, payoutMethod: 'manual' }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({ title: "Success", description: `Payout of $${pendingAmount.toFixed(2)} initiated` });
+        onRefresh();
+        refetchPayouts();
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to process payout", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const markPayoutComplete = async (payoutId: number) => {
+    if (!isSuperAdmin) return;
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem("mvp_token");
+      const response = await fetch(`/api/admin/payouts/${payoutId}/complete`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reference: `Manual-${Date.now()}` }),
+      });
+      if (response.ok) {
+        toast({ title: "Success", description: "Payout marked as completed" });
+        onRefresh();
+        refetchPayouts();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to complete payout", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div 
+      className={`p-4 rounded-lg border ${expanded ? 'border-primary bg-primary/5' : 'bg-muted/50'}`}
+      data-testid={`card-ambassador-${ambassador.id}`}
+    >
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">{ambassador.user?.email || `User #${ambassador.userId}`}</p>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span className="font-mono bg-muted px-2 py-0.5 rounded">{ambassador.referralCode}</span>
+            <span>{ambassador.commissionPercent}% commission</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Total Earned</p>
+            <p className="font-semibold text-green-400">${totalEarnings.toFixed(2)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Pending</p>
+            <p className="font-semibold text-amber-400">${pendingAmount.toFixed(2)}</p>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded(!expanded)}
+            data-testid={`button-view-details-${ambassador.id}`}
+          >
+            {expanded ? 'Hide' : 'Details'}
+          </Button>
+          
+          {isSuperAdmin && pendingAmount > 0 && (
+            <Button
+              size="sm"
+              onClick={processPayout}
+              disabled={processing}
+              data-testid={`button-payout-${ambassador.id}`}
+            >
+              <DollarSign className="w-4 h-4 mr-1" />
+              Pay ${pendingAmount.toFixed(2)}
+            </Button>
+          )}
+        </div>
+      </div>
+      
+      {expanded && (
+        <div className="mt-4 pt-4 border-t space-y-4">
+          <div>
+            <h4 className="font-medium mb-2">Recent Referrals</h4>
+            {referrals && referrals.length > 0 ? (
+              <div className="space-y-2">
+                {referrals.slice(0, 5).map((ref: any) => (
+                  <div key={ref.id} className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                    <span>{ref.referredUser?.email || `User #${ref.referredUserId}`}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">${parseFloat(ref.subscriptionAmount || '0').toFixed(2)} subscription</span>
+                      <span className="text-green-400 font-medium">${parseFloat(ref.commissionEarned || '0').toFixed(2)} earned</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No referrals yet</p>
+            )}
+          </div>
+          
+          <div>
+            <h4 className="font-medium mb-2">Payout History</h4>
+            {payouts && payouts.length > 0 ? (
+              <div className="space-y-2">
+                {payouts.slice(0, 5).map((payout) => (
+                  <div key={payout.id} className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-xs ${
+                        payout.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                        payout.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {payout.status}
+                      </span>
+                      <span>${parseFloat(payout.amount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        {payout.createdAt ? new Date(payout.createdAt).toLocaleDateString() : 'N/A'}
+                      </span>
+                      {isSuperAdmin && payout.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => markPayoutComplete(payout.id)}
+                          disabled={processing}
+                          data-testid={`button-complete-payout-${payout.id}`}
+                        >
+                          Mark Complete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No payouts yet</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AmbassadorManagement() {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [commissionPercent, setCommissionPercent] = useState("10");
+  const [processing, setProcessing] = useState(false);
+  
+  const { data: currentUser } = useQuery<UserData>({
+    queryKey: ["/api/auth/me"],
+  });
+  
+  const { data: ambassadors, isLoading, refetch } = useQuery<Ambassador[]>({
+    queryKey: ["/api/admin/ambassadors"],
+  });
+
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+
+  const createAmbassador = async () => {
+    if (!email || !referralCode) return;
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem("mvp_token");
+      const response = await fetch("/api/admin/ambassador/create", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ email, referralCode, commissionPercent: parseInt(commissionPercent) }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({ title: "Success", description: `Ambassador ${referralCode} created` });
+        setEmail("");
+        setReferralCode("");
+        refetch();
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to create ambassador", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="text-center py-8 text-muted-foreground">Loading ambassadors...</div>;
+  }
+
+  const ambassadorList = Array.isArray(ambassadors) ? ambassadors : [];
+
+  return (
+    <div className="space-y-6">
+      <Card data-testid="card-create-ambassador">
+        <CardHeader>
+          <CardTitle>Create Ambassador</CardTitle>
+          <CardDescription>Add a new ambassador to the program</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label>User Email</Label>
+              <Input 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@example.com"
+                data-testid="input-ambassador-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Referral Code</Label>
+              <Input 
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="PARTNER25"
+                data-testid="input-ambassador-code"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Commission %</Label>
+              <Input 
+                type="number"
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+                placeholder="10"
+                data-testid="input-ambassador-commission"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button 
+                onClick={createAmbassador} 
+                disabled={!email || !referralCode || processing}
+                className="w-full"
+                data-testid="button-create-ambassador"
+              >
+                Create Ambassador
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-ambassador-list">
+        <CardHeader>
+          <CardTitle>Ambassador Program</CardTitle>
+          <CardDescription>
+            Manage ambassadors and process payouts
+            {isSuperAdmin && <span className="ml-2 text-green-400">(Super Admin - Can process payouts)</span>}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {ambassadorList.length > 0 ? ambassadorList.map((amb) => (
+              <AmbassadorCard 
+                key={amb.id} 
+                ambassador={amb} 
+                isSuperAdmin={isSuperAdmin} 
+                onRefresh={refetch}
+              />
+            )) : (
+              <p className="text-muted-foreground text-center py-8">No ambassadors yet. Create one above!</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

@@ -284,6 +284,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // Auto-assign MVP badge for admins/moderators
+      if (role === 'admin' || role === 'moderator') {
+        try {
+          await storage.assignBadge(userId, 'mvp');
+        } catch (badgeError) {
+          console.log('Badge assignment skipped:', badgeError);
+        }
+      }
+
       const { passwordHash, ...sanitizedUser } = updatedUser;
       res.json(sanitizedUser);
     } catch (error) {
@@ -506,6 +515,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         active: true
       });
 
+      // Auto-assign MVP badge to ambassador
+      try {
+        await storage.assignBadge(userId, 'mvp');
+      } catch (badgeError) {
+        console.log('Badge assignment skipped:', badgeError);
+      }
+
       res.json(newAmbassador);
     } catch (error) {
       console.error("Error creating ambassador:", error);
@@ -545,6 +561,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching payouts:", error);
       res.status(500).json({ error: "Failed to fetch payouts" });
+    }
+  });
+
+  app.get("/api/admin/ambassadors/:id/referrals", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ambassadorId = parseInt(req.params.id);
+      const referrals = await storage.getAmbassadorReferrals(ambassadorId);
+      res.json(referrals);
+    } catch (error) {
+      console.error("Error fetching referrals:", error);
+      res.status(500).json({ error: "Failed to fetch referrals" });
+    }
+  });
+
+  app.get("/api/admin/ambassador-stats", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const stats = await storage.getAmbassadorStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching ambassador stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
 
@@ -705,6 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionTier: user.subscriptionTier,
         subscriptionStatus: user.subscriptionStatus,
         isAdmin: user.isAdmin,
+        role: user.role,
         preferredLanguage: user.preferredLanguage,
         theme: user.theme,
       });
@@ -1199,6 +1237,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         commissionPercent: commissionPercent?.toString() || '10',
         active: true,
       });
+      
+      // Auto-assign MVP badge to ambassador
+      try {
+        await storage.assignBadge(user.id, 'mvp');
+      } catch (badgeError) {
+        console.log('Badge assignment skipped:', badgeError);
+      }
       
       console.log(`✅ Ambassador created: ${email} with code ${referralCode.toUpperCase()}`);
       

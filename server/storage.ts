@@ -14,6 +14,8 @@ import {
   ambassadors,
   ambassadorPayouts,
   ambassadorReferrals,
+  badges,
+  userBadges,
   type User,
   type InsertUser,
   type Game,
@@ -28,6 +30,10 @@ import {
   type InsertAmbassador,
   type AmbassadorPayout,
   type InsertAmbassadorPayout,
+  type Badge,
+  type InsertBadge,
+  type UserBadge,
+  type InsertUserBadge,
 } from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
@@ -82,6 +88,17 @@ export interface IStorage {
   createAmbassadorPayout(data: InsertAmbassadorPayout): Promise<AmbassadorPayout>;
   markAmbassadorPayoutCompleted(payoutId: number, reference: string): Promise<void>;
   createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number): Promise<void>;
+  
+  // Badges
+  getBadgeByKey(key: string): Promise<Badge | undefined>;
+  createBadge(data: InsertBadge): Promise<Badge>;
+  getUserBadges(userId: number): Promise<(UserBadge & { badge: Badge })[]>;
+  assignBadge(userId: number, badgeKey: string): Promise<UserBadge | undefined>;
+  hasBadge(userId: number, badgeKey: string): Promise<boolean>;
+  
+  // Referral Stats
+  getAmbassadorReferrals(ambassadorId: number): Promise<any[]>;
+  getAmbassadorStats(): Promise<{ ambassadorId: number; referralCount: number; totalCommission: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -356,6 +373,124 @@ export class DatabaseStorage implements IStorage {
       commissionEarned: commissionEarned.toString(),
       status: 'pending',
     });
+  }
+
+  // Badges
+  async getBadgeByKey(key: string): Promise<Badge | undefined> {
+    const [badge] = await db.select().from(badges).where(eq(badges.key, key));
+    return badge;
+  }
+
+  async createBadge(data: InsertBadge): Promise<Badge> {
+    const [badge] = await db.insert(badges).values(data).returning();
+    return badge;
+  }
+
+  async getUserBadges(userId: number): Promise<(UserBadge & { badge: Badge })[]> {
+    const result = await db
+      .select({
+        id: userBadges.id,
+        userId: userBadges.userId,
+        badgeId: userBadges.badgeId,
+        earnedAt: userBadges.earnedAt,
+        badge: badges,
+      })
+      .from(userBadges)
+      .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+      .where(eq(userBadges.userId, userId));
+    
+    return result.map(r => ({
+      id: r.id,
+      userId: r.userId,
+      badgeId: r.badgeId,
+      earnedAt: r.earnedAt,
+      badge: r.badge,
+    }));
+  }
+
+  async hasBadge(userId: number, badgeKey: string): Promise<boolean> {
+    const badge = await this.getBadgeByKey(badgeKey);
+    if (!badge) return false;
+    
+    const [existing] = await db
+      .select()
+      .from(userBadges)
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badge.id)));
+    
+    return !!existing;
+  }
+
+  async assignBadge(userId: number, badgeKey: string): Promise<UserBadge | undefined> {
+    // Get or create the badge
+    let badge = await this.getBadgeByKey(badgeKey);
+    
+    if (!badge) {
+      // Create default MVP badge if it doesn't exist
+      if (badgeKey === 'mvp') {
+        badge = await this.createBadge({
+          key: 'mvp',
+          name: 'MVP',
+          description: 'Official MVP team member or ambassador',
+          icon: '🏆',
+          category: 'special',
+          xpReward: 500,
+        });
+      } else {
+        return undefined;
+      }
+    }
+    
+    // Check if user already has badge
+    const hasBadge = await this.hasBadge(userId, badgeKey);
+    if (hasBadge) return undefined;
+    
+    // Assign badge
+    const [userBadge] = await db
+      .insert(userBadges)
+      .values({ userId, badgeId: badge.id })
+      .returning();
+    
+    return userBadge;
+  }
+
+  // Referral Stats
+  async getAmbassadorReferrals(ambassadorId: number): Promise<any[]> {
+    const referrals = await db
+      .select({
+        id: ambassadorReferrals.id,
+        referredUserId: ambassadorReferrals.referredUserId,
+        subscriptionAmount: ambassadorReferrals.subscriptionAmount,
+        commissionEarned: ambassadorReferrals.commissionEarned,
+        status: ambassadorReferrals.status,
+        createdAt: ambassadorReferrals.createdAt,
+        referredUser: {
+          email: users.email,
+          username: users.username,
+        },
+      })
+      .from(ambassadorReferrals)
+      .leftJoin(users, eq(ambassadorReferrals.referredUserId, users.id))
+      .where(eq(ambassadorReferrals.ambassadorId, ambassadorId))
+      .orderBy(desc(ambassadorReferrals.createdAt));
+    
+    return referrals;
+  }
+
+  async getAmbassadorStats(): Promise<{ ambassadorId: number; referralCount: number; totalCommission: number }[]> {
+    const stats = await db
+      .select({
+        ambassadorId: ambassadorReferrals.ambassadorId,
+        referralCount: sql<number>`count(*)::int`,
+        totalCommission: sql<number>`COALESCE(sum(${ambassadorReferrals.commissionEarned}::numeric), 0)::float`,
+      })
+      .from(ambassadorReferrals)
+      .groupBy(ambassadorReferrals.ambassadorId);
+    
+    return stats.map(s => ({
+      ambassadorId: s.ambassadorId!,
+      referralCount: s.referralCount,
+      totalCommission: s.totalCommission,
+    }));
   }
 }
 
