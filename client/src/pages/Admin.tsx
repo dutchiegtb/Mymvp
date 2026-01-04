@@ -59,7 +59,7 @@ export default function AdminDashboard() {
   const refreshOdds = async () => {
     setRefreshing(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       const response = await fetch("/api/admin/refresh-odds", {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
@@ -306,7 +306,7 @@ function PromoManagement() {
 
   const createPromo = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       const response = await fetch("/api/admin/promo/create", {
         method: "POST",
         headers: { 

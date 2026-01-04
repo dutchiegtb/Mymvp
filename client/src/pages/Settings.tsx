@@ -36,8 +36,8 @@ export default function SettingsPage() {
     queryKey: ["/api/auth/me"],
   });
 
-  const canUseDiscord = user?.subscriptionTier === "premium" || user?.subscriptionTier === "elite";
-  const canUseTelegram = user?.subscriptionTier === "elite";
+  const canUseDiscord = user?.isAdmin || user?.subscriptionTier === "premium" || user?.subscriptionTier === "elite";
+  const canUseTelegram = user?.isAdmin || user?.subscriptionTier === "elite";
 
   if (isLoading) {
     return (
@@ -94,7 +94,7 @@ function DiscordSettings({ userId, subscriptionTier, canUse }: BotSettingsProps)
   const generateCode = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       const response = await fetch("/api/discord/generate-code", {
         method: "POST",
         headers: { 
@@ -117,7 +117,7 @@ function DiscordSettings({ userId, subscriptionTier, canUse }: BotSettingsProps)
 
   const unlinkDiscord = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       await fetch("/api/discord/unlink", {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
@@ -224,7 +224,7 @@ function TelegramSettings({ userId, subscriptionTier, canUse }: BotSettingsProps
   const generateCode = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       const response = await fetch("/api/telegram/generate-code", {
         method: "POST",
         headers: { 
@@ -247,7 +247,7 @@ function TelegramSettings({ userId, subscriptionTier, canUse }: BotSettingsProps
 
   const unlinkTelegram = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       await fetch("/api/telegram/unlink", {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
@@ -261,7 +261,7 @@ function TelegramSettings({ userId, subscriptionTier, canUse }: BotSettingsProps
 
   const saveSettings = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("mvp_token");
       await fetch("/api/telegram/settings", {
         method: "POST",
         headers: {

@@ -486,29 +486,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
-      const { email, password } = req.body;
+      const { email, username, password, rememberMe } = req.body;
       
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password required' });
+      if ((!email && !username) || !password) {
+        return res.status(400).json({ error: 'Email/username and password required' });
       }
       
-      // Lookup user by email in database
-      const user = await storage.getUserByEmail(email.toLowerCase());
+      // Lookup user by email or username in database
+      let user = null;
+      if (email) {
+        user = await storage.getUserByEmail(email.toLowerCase());
+      } else if (username) {
+        user = await storage.getUserByUsername(username);
+      }
+      
       if (!user || !user.passwordHash) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
       
       // Verify password hash with bcrypt
       const isValidPassword = await bcrypt.compare(password, user.passwordHash);
       if (!isValidPassword) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
       
-      // Generate JWT token
+      // Generate JWT token - 30 days if rememberMe, otherwise 7 days
       if (!JWT_SECRET) {
         return res.status(500).json({ error: 'Server configuration error' });
       }
-      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+      const tokenExpiry = rememberMe ? '30d' : '7d';
+      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: tokenExpiry });
       
       console.log(`✅ User logged in: ${email}`);
       
