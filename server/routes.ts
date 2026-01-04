@@ -301,6 +301,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Change user subscription tier
+  app.patch("/api/admin/users/:id/tier", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { tier } = req.body;
+
+      const validTiers = ['free', 'basic', 'web', 'premium', 'elite', 'ambassador', 'lifetime_elite'];
+      if (!validTiers.includes(tier)) {
+        return res.status(400).json({ error: `Invalid tier. Must be one of: ${validTiers.join(', ')}` });
+      }
+
+      // Only set isLifetime for actual lifetime tiers (not regular ambassador)
+      const isLifetime = tier === 'lifetime_elite';
+      const updatedUser = await storage.updateUser(userId, { 
+        subscriptionTier: tier,
+        isLifetime,
+        subscriptionStatus: tier === 'free' ? 'inactive' : 'active',
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log(`✅ Admin changed user ${userId} tier to ${tier}`);
+      const { passwordHash, ...sanitizedUser } = updatedUser;
+      res.json(sanitizedUser);
+    } catch (error) {
+      console.error("Error updating user tier:", error);
+      res.status(500).json({ error: "Failed to update user tier" });
+    }
+  });
+
+  // Ambassador: Get current user's ambassador profile
+  app.get("/api/ambassador/me", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ') || !JWT_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+      
+      const ambassador = await storage.getAmbassadorByUserId(decoded.userId);
+      if (!ambassador) {
+        return res.json(null);
+      }
+      
+      // Get referral count
+      const referrals = await storage.getAmbassadorReferrals(ambassador.id);
+      
+      res.json({
+        ...ambassador,
+        totalReferrals: referrals.length,
+      });
+    } catch (error) {
+      console.error("Error fetching ambassador profile:", error);
+      res.status(500).json({ error: "Failed to fetch ambassador profile" });
+    }
+  });
+
   // Get odds comparison for a specific matchup
   app.get("/api/odds/compare", async (req: Request, res: Response) => {
     try {
@@ -696,7 +757,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Derive isAdmin from role
       const isAdmin = user.isAdmin || user.role === 'admin' || user.role === 'super_admin';
-      const effectiveTier = isAdmin ? 'elite' : user.subscriptionTier;
       
       res.json({
         success: true,
@@ -704,10 +764,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           username: user.username,
-          subscriptionTier: effectiveTier,
-          actualTier: user.subscriptionTier,
+          subscriptionTier: user.subscriptionTier, // Keep actual tier
           subscriptionStatus: user.subscriptionStatus,
-          isAdmin,
+          isAdmin, // Use this for admin bypass
           role: user.role,
         },
         token,
@@ -744,17 +803,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Derive isAdmin from role (admin or super_admin are admins)
       const isAdmin = user.isAdmin || user.role === 'admin' || user.role === 'super_admin';
       
-      // Admins get full access regardless of subscription tier
-      const effectiveTier = isAdmin ? 'elite' : user.subscriptionTier;
-      
       res.json({
         id: user.id,
         email: user.email,
         username: user.username,
-        subscriptionTier: effectiveTier,
-        actualTier: user.subscriptionTier, // Real tier for display purposes
+        subscriptionTier: user.subscriptionTier, // Keep actual tier
         subscriptionStatus: user.subscriptionStatus,
-        isAdmin,
+        isAdmin, // Use this for admin bypass on client
         role: user.role,
         preferredLanguage: user.preferredLanguage,
         theme: user.theme,

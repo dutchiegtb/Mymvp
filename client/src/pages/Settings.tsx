@@ -24,7 +24,6 @@ interface UserData {
   email: string;
   username?: string;
   subscriptionTier: string;
-  actualTier?: string;
   subscriptionStatus?: string;
   isAdmin?: boolean;
   role?: string;
@@ -94,7 +93,7 @@ export default function SettingsPage() {
   }
 
   // Determine which tabs to show based on tier
-  const showAmbassadorTab = user.subscriptionTier === 'ambassador' || user.actualTier === 'ambassador' || isAdmin;
+  const showAmbassadorTab = user.subscriptionTier === 'ambassador' || isAdmin;
   const showAdminTab = isAdmin;
 
   return (
@@ -173,8 +172,7 @@ export default function SettingsPage() {
 
 function AccountSection({ user, isAdmin }: { user: UserData; isAdmin: boolean }) {
   const [, navigate] = useLocation();
-  const displayTier = user.actualTier || user.subscriptionTier;
-  const tier = tierDisplay[displayTier.toLowerCase()] || tierDisplay.free;
+  const tier = tierDisplay[user.subscriptionTier?.toLowerCase()] || tierDisplay.free;
   const TierIcon = tier.icon;
   const isStaff = user.role === 'admin' || user.role === 'super_admin' || user.role === 'moderator';
 
@@ -231,7 +229,7 @@ function AccountSection({ user, isAdmin }: { user: UserData; isAdmin: boolean })
           </div>
         </div>
 
-        {!isAdmin && displayTier.toLowerCase() !== 'elite' && displayTier !== 'ambassador' && (
+        {!isAdmin && user.subscriptionTier?.toLowerCase() !== 'elite' && user.subscriptionTier !== 'ambassador' && (
           <Button 
             className="w-full" 
             onClick={() => navigate("/dashboard?tab=pricing")}
