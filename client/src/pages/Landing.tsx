@@ -126,6 +126,9 @@ export default function Landing() {
               <Link href="#pricing" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md">
                 Pricing
               </Link>
+              <Link href="/ambassador" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md text-amber-400" data-testid="link-ambassador">
+                Become Ambassador
+              </Link>
               <Link href="/dashboard" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-dashboard">
                 Dashboard
               </Link>

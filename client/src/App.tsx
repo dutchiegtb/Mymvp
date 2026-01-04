@@ -10,6 +10,7 @@ import Register from "@/pages/Register";
 import Settings from "@/pages/Settings";
 import Roadmap from "@/pages/Roadmap";
 import Admin from "@/pages/Admin";
+import AmbassadorProgram from "@/pages/AmbassadorProgram";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/roadmap" component={Roadmap} />
       <Route path="/admin" component={Admin} />
+      <Route path="/ambassador" component={AmbassadorProgram} />
       <Route component={NotFound} />
     </Switch>
   );

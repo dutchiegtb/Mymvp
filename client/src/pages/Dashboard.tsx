@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -17,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info, Search, ChevronDown, ExternalLink, Gamepad2, Swords, Circle } from "lucide-react";
+import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info, Search, ChevronDown, ExternalLink, Gamepad2, Swords, Circle, Crown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SPORTS_BY_CATEGORY } from "@shared/schema";
 import type { ParlayLeg } from "@/components/ParlayBuilder";
@@ -1484,6 +1485,17 @@ export default function Dashboard() {
                             <Button className="w-full" data-testid="button-upgrade-settings">
                               Upgrade to Pro
                             </Button>
+                            <div className="pt-2 border-t">
+                              <Link href="/ambassador">
+                                <Button variant="outline" className="w-full border-amber-500/50 text-amber-400 hover:bg-amber-500/10" data-testid="button-become-ambassador">
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Become Ambassador - $749
+                                </Button>
+                              </Link>
+                              <p className="text-xs text-muted-foreground text-center mt-2">
+                                Lifetime Elite + 20% recurring commission
+                              </p>
+                            </div>
                           </CardContent>
                         </Card>
 
