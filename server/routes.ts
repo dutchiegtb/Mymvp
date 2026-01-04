@@ -694,15 +694,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ User logged in: ${email}`);
       
+      // Derive isAdmin from role
+      const isAdmin = user.isAdmin || user.role === 'admin' || user.role === 'super_admin';
+      const effectiveTier = isAdmin ? 'elite' : user.subscriptionTier;
+      
       res.json({
         success: true,
         user: { 
           id: user.id,
           email: user.email,
           username: user.username,
-          subscriptionTier: user.subscriptionTier, 
+          subscriptionTier: effectiveTier,
+          actualTier: user.subscriptionTier,
           subscriptionStatus: user.subscriptionStatus,
-          isAdmin: user.isAdmin,
+          isAdmin,
+          role: user.role,
         },
         token,
       });
@@ -735,16 +741,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'User not found' });
       }
       
+      // Derive isAdmin from role (admin or super_admin are admins)
+      const isAdmin = user.isAdmin || user.role === 'admin' || user.role === 'super_admin';
+      
+      // Admins get full access regardless of subscription tier
+      const effectiveTier = isAdmin ? 'elite' : user.subscriptionTier;
+      
       res.json({
         id: user.id,
         email: user.email,
         username: user.username,
-        subscriptionTier: user.subscriptionTier,
+        subscriptionTier: effectiveTier,
+        actualTier: user.subscriptionTier, // Real tier for display purposes
         subscriptionStatus: user.subscriptionStatus,
-        isAdmin: user.isAdmin,
+        isAdmin,
         role: user.role,
         preferredLanguage: user.preferredLanguage,
         theme: user.theme,
+        isLifetime: user.isLifetime,
       });
     } catch (error) {
       console.error('Auth check error:', error);
