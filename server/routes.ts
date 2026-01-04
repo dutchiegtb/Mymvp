@@ -860,6 +860,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create checkout session for ambassador program ($749 one-time payment)
+  app.post("/api/stripe/create-ambassador-checkout", async (req: Request, res: Response) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: 'Payment system not configured' });
+      }
+
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Check if already an ambassador
+      const existingAmbassador = await storage.getAmbassadorByUserId(userId);
+      if (existingAmbassador) {
+        return res.status(400).json({ error: 'Already an ambassador' });
+      }
+
+      // Check ambassador limit (50 founding ambassadors)
+      const ambassadors = await storage.getAllAmbassadors();
+      if (ambassadors.length >= 50) {
+        return res.status(400).json({ error: 'Ambassador program is currently full' });
+      }
+
+      // Ambassador price ID from env or use price_data for one-time
+      const ambassadorPriceId = process.env.STRIPE_PRICE_AMBASSADOR;
+      
+      // Create checkout session for one-time payment
+      const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+        payment_method_types: ['card'],
+        mode: 'payment',
+        customer: user.stripeCustomerId || undefined,
+        customer_email: user.stripeCustomerId ? undefined : user.email,
+        metadata: {
+          userId: userId.toString(),
+          type: 'ambassador',
+        },
+        success_url: `${req.headers.origin || 'https://mvp.replit.app'}/dashboard?payment=success&type=ambassador`,
+        cancel_url: `${req.headers.origin || 'https://mvp.replit.app'}/ambassador?payment=cancelled`,
+        line_items: ambassadorPriceId 
+          ? [{ price: ambassadorPriceId, quantity: 1 }]
+          : [{
+              price_data: {
+                currency: 'usd',
+                product_data: {
+                  name: 'MVP Ambassador Program',
+                  description: 'Lifetime Elite access + 20% recurring commission on all referrals',
+                },
+                unit_amount: 74900, // $749.00 in cents
+              },
+              quantity: 1,
+            }],
+      };
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
+
+      res.json({ 
+        sessionId: session.id, 
+        url: session.url,
+      });
+    } catch (error) {
+      console.error('Ambassador checkout error:', error);
+      res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+  });
+
   // Get subscription status
   app.get("/api/stripe/subscription/:userId", async (req: Request, res: Response) => {
     try {
@@ -911,6 +983,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const session = event.data.object as Stripe.Checkout.Session;
           const userId = session.metadata?.userId;
           const tier = session.metadata?.tier;
+          const checkoutType = session.metadata?.type;
+          
+          // Handle ambassador purchase
+          if (checkoutType === 'ambassador' && userId) {
+            try {
+              const userIdNum = parseInt(userId);
+              const user = await storage.getUser(userIdNum);
+              
+              if (user) {
+                // Generate unique referral code
+                const referralCode = `MVP${user.username?.toUpperCase().substring(0, 4) || 'AMB'}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                
+                // Create ambassador record
+                const ambassador = await storage.createAmbassador({
+                  userId: userIdNum,
+                  referralCode,
+                  commissionPercent: "20.00",
+                  payoutThreshold: "25.00",
+                  purchaseAmount: "749.00",
+                  active: true,
+                  tier: 'rookie',
+                });
+                
+                // Grant lifetime Elite access
+                await storage.updateUserSubscription(userIdNum, 'elite', 'active');
+                
+                // Update stripe customer ID if new
+                if (session.customer) {
+                  await storage.updateUserStripeCustomerId(userIdNum, session.customer as string);
+                }
+                
+                console.log(`🎉 New Ambassador created: ${user.username} (${referralCode}) - Lifetime Elite granted`);
+              }
+            } catch (ambassadorCreateError) {
+              console.error('Error creating ambassador:', ambassadorCreateError);
+            }
+            break;
+          }
           
           if (userId && tier) {
             // Update user subscription
