@@ -507,6 +507,32 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
 
+  const { data: currentUser } = useQuery<{
+    id: number;
+    email: string;
+    username?: string;
+    subscriptionTier: string;
+    isAdmin?: boolean;
+  }>({
+    queryKey: ['/api/auth/me'],
+    queryFn: async () => {
+      const token = localStorage.getItem('mvp_token');
+      if (!token) return null;
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+  });
+
+  const userTier = currentUser?.subscriptionTier === 'premium' ? 'tier2' 
+    : currentUser?.subscriptionTier === 'elite' ? 'tier3'
+    : currentUser?.subscriptionTier === 'web' ? 'tier1'
+    : 'free';
+  const isAdmin = currentUser?.isAdmin || false;
+
   useEffect(() => {
     const onboarded = localStorage.getItem('mvp_onboarded');
     if (!onboarded) {
@@ -688,7 +714,7 @@ export default function Dashboard() {
       
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
-          <AppSidebar userTier="free" onTabChange={handleSidebarTabChange} activeTab={activeMainTab} />
+          <AppSidebar userTier={userTier as any} isAdmin={isAdmin} onTabChange={handleSidebarTabChange} activeTab={activeMainTab} />
           <div className="flex flex-col flex-1 overflow-hidden">
             <header className="flex items-center justify-between gap-4 p-4 border-b">
               <div className="flex items-center gap-4 flex-wrap">

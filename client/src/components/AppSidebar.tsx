@@ -30,11 +30,12 @@ const bottomItems = [
 
 interface AppSidebarProps {
   userTier?: SubscriptionTier;
+  isAdmin?: boolean;
   onTabChange?: (tab: string) => void;
   activeTab?: string;
 }
 
-export default function AppSidebar({ userTier = "free", onTabChange, activeTab }: AppSidebarProps) {
+export default function AppSidebar({ userTier = "free", isAdmin = false, onTabChange, activeTab }: AppSidebarProps) {
   const [location] = useLocation();
 
   const handleNavClick = (item: typeof navItems[0]) => {
@@ -93,7 +94,7 @@ export default function AppSidebar({ userTier = "free", onTabChange, activeTab }
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {userTier === "free" && (
+        {userTier === "free" && !isAdmin && (
           <SidebarGroup>
             <SidebarGroupContent className="px-4">
               <div className="space-y-2 p-4 rounded-md bg-primary/10 border border-primary/20">

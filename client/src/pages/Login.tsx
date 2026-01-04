@@ -1,20 +1,52 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TrendingUp, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ThemeToggle from '@/components/ThemeToggle';
 
+const EMAIL_DOMAINS = [
+  '@gmail.com',
+  '@yahoo.com',
+  '@outlook.com',
+  '@hotmail.com',
+  '@icloud.com',
+  '@aol.com',
+  '@protonmail.com',
+];
+
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (identifier.includes('@') && !identifier.includes('.')) {
+      const atIndex = identifier.indexOf('@');
+      const partialDomain = identifier.substring(atIndex);
+      const matches = EMAIL_DOMAINS.filter(d => d.startsWith(partialDomain));
+      setSuggestions(matches.map(d => identifier.substring(0, atIndex) + d));
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [identifier]);
+
+  const selectSuggestion = (suggestion: string) => {
+    setIdentifier(suggestion);
+    setShowSuggestions(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +56,20 @@ export default function Login() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: identifier.includes('@') ? identifier : undefined,
+          username: !identifier.includes('@') ? identifier : undefined,
+          password,
+          rememberMe,
+        }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        if (data.token) {
+          localStorage.setItem('mvp_token', data.token);
+        }
         toast({
           title: 'Welcome back!',
           description: 'Redirecting to dashboard...',
@@ -78,16 +118,37 @@ export default function Login() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  data-testid="input-email"
-                />
+                <Label htmlFor="identifier">Email or Username</Label>
+                <div className="relative">
+                  <Input
+                    ref={inputRef}
+                    id="identifier"
+                    type="text"
+                    placeholder="your@email.com or username"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    onFocus={() => identifier.includes('@') && !identifier.includes('.') && setShowSuggestions(suggestions.length > 0)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    required
+                    data-testid="input-identifier"
+                    autoComplete="username"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
+                      {suggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                          onMouseDown={() => selectSuggestion(suggestion)}
+                          data-testid={`suggestion-${idx}`}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -100,6 +161,7 @@ export default function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     data-testid="input-password"
+                    autoComplete="current-password"
                   />
                   <Button
                     type="button"
@@ -116,6 +178,17 @@ export default function Login() {
                     )}
                   </Button>
                 </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  data-testid="checkbox-remember-me"
+                />
+                <Label htmlFor="rememberMe" className="text-sm cursor-pointer">
+                  Remember me for 30 days
+                </Label>
               </div>
               <Button 
                 type="submit" 

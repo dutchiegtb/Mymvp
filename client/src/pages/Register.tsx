@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TrendingUp, Eye, EyeOff, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ThemeToggle from '@/components/ThemeToggle';
+
+const EMAIL_DOMAINS = [
+  '@gmail.com',
+  '@yahoo.com',
+  '@outlook.com',
+  '@hotmail.com',
+  '@icloud.com',
+  '@aol.com',
+  '@protonmail.com',
+];
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -17,8 +27,27 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [promoValidated, setPromoValidated] = useState(false);
   const [promoMessage, setPromoMessage] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (email.includes('@') && !email.includes('.')) {
+      const atIndex = email.indexOf('@');
+      const partialDomain = email.substring(atIndex);
+      const matches = EMAIL_DOMAINS.filter(d => d.startsWith(partialDomain));
+      setSuggestions(matches.map(d => email.substring(0, atIndex) + d));
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [email]);
+
+  const selectSuggestion = (suggestion: string) => {
+    setEmail(suggestion);
+    setShowSuggestions(false);
+  };
 
   const validatePromo = async () => {
     if (!promoCode) return;
@@ -120,15 +149,35 @@ export default function Register() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  data-testid="input-email"
-                />
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={() => email.includes('@') && !email.includes('.') && setShowSuggestions(suggestions.length > 0)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    required
+                    data-testid="input-email"
+                    autoComplete="email"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
+                      {suggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                          onMouseDown={() => selectSuggestion(suggestion)}
+                          data-testid={`email-suggestion-${idx}`}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
