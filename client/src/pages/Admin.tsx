@@ -79,9 +79,11 @@ export default function AdminDashboard() {
     queryKey: ["/api/auth/me"],
   });
 
+  const hasAdminAccessForQuery = user?.isAdmin || user?.role === 'admin' || user?.role === 'super_admin';
+  
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<AdminStats>({
     queryKey: ["/api/admin/dashboard"],
-    enabled: !!user?.isAdmin,
+    enabled: !!hasAdminAccessForQuery,
   });
 
   const refreshOdds = async () => {
@@ -119,7 +121,10 @@ export default function AdminDashboard() {
     return null;
   }
 
-  if (!user.isAdmin) {
+  // Check admin access - role-based check
+  const hasAdminAccess = user.isAdmin || user.role === 'admin' || user.role === 'super_admin';
+  
+  if (!hasAdminAccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
