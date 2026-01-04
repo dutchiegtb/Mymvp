@@ -18,7 +18,7 @@ export const users = pgTable("users", {
   theme: varchar("theme", { length: 20 }).default("dark"),
   referredByCode: varchar("referred_by_code", { length: 50 }),
   isAdmin: boolean("is_admin").default(false),
-  role: varchar("role", { length: 20 }).default("user"), // 'user' | 'moderator' | 'admin'
+  role: varchar("role", { length: 20 }).default("user"), // 'user' | 'moderator' | 'admin' | 'super_admin'
   isLifetime: boolean("is_lifetime").default(false),
   ageVerified: boolean("age_verified").default(false),
   disclaimerAccepted: boolean("disclaimer_accepted").default(false),
@@ -191,6 +191,22 @@ export const ambassadorReferrals = pgTable("ambassador_referrals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Ambassador Payouts table (weekly payout records)
+export const ambassadorPayouts = pgTable("ambassador_payouts", {
+  id: serial("id").primaryKey(),
+  ambassadorId: integer("ambassador_id").references(() => ambassadors.id, { onDelete: "cascade" }),
+  amount: decimal("amount").notNull(),
+  payoutMethod: varchar("payout_method", { length: 50 }), // 'stripe_connect' | 'paypal' | 'manual'
+  payoutReference: varchar("payout_reference", { length: 255 }), // Transaction ID or reference
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
+  periodStart: timestamp("period_start"),
+  periodEnd: timestamp("period_end"),
+  referralCount: integer("referral_count").default(0),
+  notes: text("notes"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ═══════════════════════════════════════════════════════════════
 // GAMIFICATION TABLES
 // ═══════════════════════════════════════════════════════════════
@@ -311,6 +327,7 @@ export const insertBotUserSchema = createInsertSchema(botUsers).omit({ id: true,
 export const insertBotAlertSchema = createInsertSchema(botAlerts).omit({ id: true, createdAt: true });
 export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, createdAt: true, currentUses: true });
 export const insertAmbassadorSchema = createInsertSchema(ambassadors).omit({ id: true, createdAt: true, totalReferrals: true, totalEarnings: true, pendingPayout: true });
+export const insertAmbassadorPayoutSchema = createInsertSchema(ambassadorPayouts).omit({ id: true, createdAt: true, processedAt: true });
 export const insertUserStatsSchema = createInsertSchema(userStats).omit({ id: true, updatedAt: true });
 export const insertBadgeSchema = createInsertSchema(badges).omit({ id: true, createdAt: true });
 export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({ id: true, earnedAt: true });
@@ -339,6 +356,8 @@ export type PromoCode = typeof promoCodes.$inferSelect;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
 export type Ambassador = typeof ambassadors.$inferSelect;
 export type InsertAmbassador = z.infer<typeof insertAmbassadorSchema>;
+export type AmbassadorPayout = typeof ambassadorPayouts.$inferSelect;
+export type InsertAmbassadorPayout = z.infer<typeof insertAmbassadorPayoutSchema>;
 export type UserStat = typeof userStats.$inferSelect;
 export type InsertUserStat = z.infer<typeof insertUserStatsSchema>;
 export type Badge = typeof badges.$inferSelect;

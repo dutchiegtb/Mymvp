@@ -26,15 +26,15 @@ const STRIPE_PRICES: Record<string, { priceId: string; name: string; amount: num
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 const JWT_SECRET = process.env.SESSION_SECRET;
 
-// Middleware to require admin access (via x-admin-key OR user.isAdmin with JWT)
-const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
-  // First check x-admin-key header
+// Middleware to require specific role access
+const requireRole = (roles: string[]) => async (req: Request, res: Response, next: NextFunction) => {
+  // First check x-admin-key header - if provided and valid, bypass role check (treat as super_admin)
   const adminKey = req.headers['x-admin-key'];
   if (ADMIN_SECRET_KEY && adminKey === ADMIN_SECRET_KEY) {
     return next();
   }
   
-  // Then check if user is authenticated via JWT and is admin
+  // Then check if user is authenticated via JWT and has required role
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ') && JWT_SECRET) {
@@ -42,17 +42,21 @@ const requireAdmin = async (req: Request, res: Response, next: NextFunction) => 
       const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
       const user = await storage.getUser(decoded.userId);
       
-      if (user?.isAdmin) {
+      if (user && (roles.includes(user.role || 'user') || user.role === 'super_admin')) {
         (req as any).user = user;
         return next();
       }
     }
   } catch (error) {
-    // JWT verification failed, continue to return 403
+    // JWT verification failed
   }
   
-  return res.status(403).json({ error: 'Admin access required' });
+  return res.status(403).json({ error: 'Unauthorized: Required role not met' });
 };
+
+// Legacy middleware for backward compatibility, now uses requireRole
+const requireAdmin = requireRole(['admin', 'super_admin']);
+const requireSuperAdmin = requireRole(['super_admin']);
 
 // In-memory cache for odds data (refreshed periodically)
 let cachedOdds: { data: EVPick[]; lastUpdated: Date } = {
@@ -237,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manual cache refresh (for admin/testing)
-  app.post("/api/admin/refresh-odds", async (req: Request, res: Response) => {
+  app.post("/api/admin/refresh-odds", requireAdmin, async (req: Request, res: Response) => {
     try {
       await refreshOddsCache();
       res.json({
@@ -248,6 +252,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error refreshing odds:", error);
       res.status(500).json({ error: "Failed to refresh odds" });
+    }
+  });
+
+  // Admin Management Endpoints
+  app.get("/api/admin/users", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const usersList = await storage.getAllUsers();
+      // Remove sensitive info like passwordHash
+      const sanitizedUsers = usersList.map(({ passwordHash, ...u }) => u);
+      res.json(sanitizedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/role", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { role } = req.body;
+
+      if (!['user', 'moderator', 'admin'].includes(role)) {
+        return res.status(400).json({ error: "Invalid role. Must be 'user', 'moderator', or 'admin'." });
+      }
+
+      // Update role and set isAdmin flag accordingly
+      const isAdmin = role === 'admin' || role === 'super_admin';
+      const updatedUser = await storage.updateUser(userId, { role, isAdmin });
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { passwordHash, ...sanitizedUser } = updatedUser;
+      res.json(sanitizedUser);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ error: "Failed to update user role" });
     }
   });
 
