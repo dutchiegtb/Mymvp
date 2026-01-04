@@ -16,8 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 interface UserData {
   id: number;
   email: string;
+  username?: string | null;
   isAdmin?: boolean;
   subscriptionTier: string;
+  role?: string;
 }
 
 interface AdminStats {
@@ -257,42 +259,107 @@ function SubscriptionRow({ tier, count, color }: { tier: string; count: number; 
 }
 
 function UserManagement() {
-  const { data: users, isLoading } = useQuery({
+  const { toast } = useToast();
+  const { data: currentUser } = useQuery<UserData>({
+    queryKey: ["/api/auth/me"],
+  });
+  const { data: users, isLoading, refetch } = useQuery<UserData[]>({
     queryKey: ["/api/admin/users"],
   });
+  const [updatingRole, setUpdatingRole] = useState<number | null>(null);
+  
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+
+  const updateUserRole = async (userId: number, newRole: string) => {
+    setUpdatingRole(userId);
+    try {
+      const token = localStorage.getItem("mvp_token");
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({ title: "Success", description: `User role updated to ${newRole}` });
+        refetch();
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update role", variant: "destructive" });
+    } finally {
+      setUpdatingRole(null);
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'super_admin': return 'bg-red-500/20 text-red-400';
+      case 'admin': return 'bg-green-500/20 text-green-400';
+      case 'moderator': return 'bg-blue-500/20 text-blue-400';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading users...</div>;
   }
 
+  const usersList = Array.isArray(users) ? users : [];
+
   return (
     <Card data-testid="card-user-management">
       <CardHeader>
         <CardTitle>User Management</CardTitle>
-        <CardDescription>View and manage all registered users</CardDescription>
+        <CardDescription>
+          View and manage all registered users
+          {isSuperAdmin && <span className="ml-2 text-green-400">(Super Admin - Can change roles)</span>}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {(users as any)?.users?.map((user: any, index: number) => (
+          {usersList.length > 0 ? usersList.map((user: UserData, index: number) => (
             <div 
               key={user.id} 
-              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 flex-wrap"
               data-testid={`row-user-${index}`}
             >
-              <div>
-                <p className="font-medium">{user.email}</p>
-                <p className="text-sm text-muted-foreground">ID: {user.id}</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{user.username || user.email}</p>
+                <p className="text-sm text-muted-foreground truncate">{user.email} (ID: {user.id})</p>
               </div>
-              <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                user.subscriptionTier === 'elite' ? 'bg-amber-500/20 text-amber-400' :
-                user.subscriptionTier === 'premium' ? 'bg-primary/20 text-primary' :
-                user.subscriptionTier === 'basic' ? 'bg-blue-500/20 text-blue-400' :
-                'bg-muted text-muted-foreground'
-              }`}>
-                {user.subscriptionTier?.toUpperCase() || 'FREE'}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2 py-1 rounded text-xs font-semibold ${getRoleBadgeColor(user.role || 'user')}`}>
+                  {(user.role || 'user').toUpperCase()}
+                </span>
+                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                  user.subscriptionTier === 'elite' ? 'bg-amber-500/20 text-amber-400' :
+                  user.subscriptionTier === 'premium' ? 'bg-primary/20 text-primary' :
+                  user.subscriptionTier === 'web' ? 'bg-blue-500/20 text-blue-400' :
+                  'bg-muted text-muted-foreground'
+                }`}>
+                  {user.subscriptionTier?.toUpperCase() || 'FREE'}
+                </span>
+                {isSuperAdmin && user.role !== 'super_admin' && (
+                  <select
+                    className="bg-background border border-border rounded px-2 py-1 text-xs"
+                    value={user.role || 'user'}
+                    onChange={(e) => updateUserRole(user.id, e.target.value)}
+                    disabled={updatingRole === user.id}
+                    data-testid={`select-role-${user.id}`}
+                  >
+                    <option value="user">User</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                )}
+              </div>
             </div>
-          )) || <p className="text-muted-foreground">No users found</p>}
+          )) : <p className="text-muted-foreground">No users found</p>}
         </div>
       </CardContent>
     </Card>
