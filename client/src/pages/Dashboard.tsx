@@ -257,8 +257,50 @@ function AgeGateModal({ open, onComplete }: { open: boolean; onComplete: () => v
   );
 }
 
+const SPORTSBOOK_OPTIONS = [
+  { id: 'draftkings', name: 'DraftKings', color: '#00C06B' },
+  { id: 'fanduel', name: 'FanDuel', color: '#1493FF' },
+  { id: 'betmgm', name: 'BetMGM', color: '#BFA868' },
+  { id: 'caesars', name: 'Caesars', color: '#0A3F24' },
+  { id: 'pointsbet', name: 'PointsBet', color: '#ED1C24' },
+  { id: 'bet365', name: 'Bet365', color: '#027B5B' },
+  { id: 'barstool', name: 'ESPN BET', color: '#FFCC00' },
+  { id: 'betrivers', name: 'BetRivers', color: '#FF6B00' },
+  { id: 'unibet', name: 'Unibet', color: '#14805E' },
+  { id: 'hard_rock', name: 'Hard Rock Bet', color: '#000000' },
+  { id: 'prizepicks', name: 'PrizePicks', color: '#8B5CF6' },
+  { id: 'underdog', name: 'Underdog', color: '#FF4500' },
+  { id: 'sleeper', name: 'Sleeper', color: '#1A1A2E' },
+  { id: 'other', name: 'Other', color: '#666666' },
+];
+
 function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: () => void }) {
   const [step, setStep] = useState(0);
+  const [selectedSportsbooks, setSelectedSportsbooks] = useState<string[]>([]);
+  
+  const toggleSportsbook = (id: string) => {
+    setSelectedSportsbooks(prev => 
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  const saveSportsbookPreferences = async () => {
+    if (selectedSportsbooks.length > 0) {
+      try {
+        const token = localStorage.getItem('mvp_token');
+        await fetch('/api/user/sportsbook-preferences', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ sportsbooks: selectedSportsbooks }),
+        });
+      } catch (error) {
+        console.error('Failed to save sportsbook preferences:', error);
+      }
+    }
+  };
   
   const steps = [
     {
@@ -270,6 +312,14 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
         "Identify value picks with our proprietary EV algorithm",
         "Build smarter parlays with calculated risk metrics",
       ],
+      type: 'info' as const,
+    },
+    {
+      title: "Which sportsbooks do you use?",
+      icon: <Award className="h-12 w-12 text-[#FFCC00]" />,
+      description: "Help us personalize your experience. Select all the sportsbooks where you have accounts.",
+      details: [],
+      type: 'sportsbooks' as const,
     },
     {
       title: "Picks Tab",
@@ -280,6 +330,7 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
         "Filter by sport to focus on what you know",
         "Higher EV% means more potential value",
       ],
+      type: 'info' as const,
     },
     {
       title: "Polymarket Tab",
@@ -290,6 +341,7 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
         "Track market sentiment on current events",
         "Quick links to trade on Polymarket",
       ],
+      type: 'info' as const,
     },
     {
       title: "Social & Gamification",
@@ -300,6 +352,7 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
         "Build daily streaks for bonus rewards",
         "See what winning bettors are tracking",
       ],
+      type: 'info' as const,
     },
     {
       title: "You're Ready!",
@@ -310,10 +363,15 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
         "Check back often - odds update in real-time",
         "Good luck and have fun!",
       ],
+      type: 'info' as const,
     },
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (step === 1) {
+      await saveSportsbookPreferences();
+    }
+    
     if (step < steps.length - 1) {
       setStep(step + 1);
     } else {
@@ -351,16 +409,53 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-3 py-4">
-          {currentStep.details.map((detail, idx) => (
-            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                {idx + 1}
-              </div>
-              <span className="text-sm">{detail}</span>
+        {currentStep.type === 'sportsbooks' ? (
+          <div className="py-4">
+            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+              {SPORTSBOOK_OPTIONS.map((book) => (
+                <button
+                  key={book.id}
+                  onClick={() => toggleSportsbook(book.id)}
+                  className={`flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                    selectedSportsbooks.includes(book.id)
+                      ? 'border-primary bg-primary/10'
+                      : 'border-muted-foreground/20 hover:border-muted-foreground/40'
+                  }`}
+                  data-testid={`sportsbook-${book.id}`}
+                >
+                  <div 
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: book.color }}
+                  />
+                  <span className="text-sm font-medium truncate">{book.name}</span>
+                  {selectedSportsbooks.includes(book.id) && (
+                    <div className="ml-auto text-primary">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+            {selectedSportsbooks.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-3 text-center">
+                {selectedSportsbooks.length} sportsbook{selectedSportsbooks.length !== 1 ? 's' : ''} selected
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3 py-4">
+            {currentStep.details.map((detail, idx) => (
+              <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  {idx + 1}
+                </div>
+                <span className="text-sm">{detail}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex justify-center gap-1.5 py-2">
           {steps.map((_, idx) => (
@@ -380,7 +475,7 @@ function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: (
             className="w-full bg-[#00FF7F] hover:bg-[#00FF7F]/80 text-black font-semibold"
             data-testid="button-tutorial-next"
           >
-            {step === steps.length - 1 ? "Get Started" : "Next"}
+            {step === steps.length - 1 ? "Get Started" : step === 1 ? (selectedSportsbooks.length > 0 ? "Continue" : "Skip This Step") : "Next"}
           </Button>
           {step < steps.length - 1 && (
             <Button 
