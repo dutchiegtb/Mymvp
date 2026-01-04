@@ -7,10 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MessageSquare, Bot, Settings2, Crown } from "lucide-react";
+import { ArrowLeft, MessageSquare, Bot, Settings2, Crown, Star, Check, Shield, ExternalLink, User } from "lucide-react";
 import { SiDiscord, SiTelegram } from "react-icons/si";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface UserData {
   id: number;
@@ -19,7 +20,22 @@ interface UserData {
   subscriptionTier: string;
   subscriptionStatus?: string;
   isAdmin?: boolean;
+  role?: string;
 }
+
+const tierDisplay: Record<string, { name: string; colorClass: string; icon: typeof Crown }> = {
+  free: { name: "Free", colorClass: "text-muted-foreground", icon: Check },
+  basic: { name: "Basic", colorClass: "text-blue-400", icon: Check },
+  premium: { name: "Premium", colorClass: "text-purple-400", icon: Star },
+  elite: { name: "Elite", colorClass: "text-amber-400", icon: Crown },
+};
+
+const roleDisplay: Record<string, string> = {
+  user: "User",
+  moderator: "Moderator",
+  admin: "Admin",
+  super_admin: "Super Admin",
+};
 
 interface BotStatus {
   connected: boolean;
@@ -66,11 +82,115 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid gap-6">
+          <AccountOverview user={user} />
+          {(user.isAdmin || user.role === 'admin' || user.role === 'super_admin' || user.role === 'moderator') && (
+            <AdminSettings role={user.role || 'user'} />
+          )}
           <DiscordSettings userId={user.id} subscriptionTier={user.subscriptionTier} canUse={canUseDiscord} />
           <TelegramSettings userId={user.id} subscriptionTier={user.subscriptionTier} canUse={canUseTelegram} />
         </div>
       </div>
     </div>
+  );
+}
+
+function AccountOverview({ user }: { user: UserData }) {
+  const [, navigate] = useLocation();
+  const tier = tierDisplay[user.subscriptionTier.toLowerCase()] || tierDisplay.free;
+  const TierIcon = tier.icon;
+  const isStaff = user.role === 'admin' || user.role === 'super_admin' || user.role === 'moderator';
+
+  return (
+    <Card data-testid="card-account-overview">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Account</CardTitle>
+            <CardDescription>Your subscription and profile</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <div>
+            <p className="text-sm text-muted-foreground">Email</p>
+            <p className="font-medium" data-testid="text-user-email">{user.email}</p>
+          </div>
+          {user.username && (
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Username</p>
+              <p className="font-medium" data-testid="text-username">@{user.username}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <TierIcon className={`w-5 h-5 ${tier.colorClass}`} />
+            <div>
+              <p className="text-sm text-muted-foreground">Current Plan</p>
+              <p className={`font-semibold ${tier.colorClass}`} data-testid="text-subscription-tier">
+                {tier.name}
+              </p>
+            </div>
+          </div>
+          {isStaff && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Shield className="w-3 h-3" />
+              {roleDisplay[user.role || 'user']}
+            </Badge>
+          )}
+        </div>
+
+        {user.subscriptionTier.toLowerCase() !== 'elite' && (
+          <Button 
+            className="w-full" 
+            onClick={() => navigate("/dashboard?tab=pricing")}
+            data-testid="button-upgrade-plan"
+          >
+            Upgrade Plan
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminSettings({ role }: { role: string }) {
+  const [, navigate] = useLocation();
+
+  return (
+    <Card data-testid="card-admin-settings">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-amber-500/10">
+            <Shield className="w-5 h-5 text-amber-500" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Admin Access</CardTitle>
+            <CardDescription>You have {roleDisplay[role]} privileges</CardDescription>
+          </div>
+        </div>
+        <Badge variant="secondary" className="text-amber-500">
+          {roleDisplay[role]}
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        <Button 
+          variant="outline" 
+          className="w-full flex items-center justify-center gap-2"
+          onClick={() => navigate("/admin")}
+          data-testid="button-admin-dashboard"
+        >
+          <Settings2 className="w-4 h-4" />
+          Open Admin Dashboard
+          <ExternalLink className="w-4 h-4" />
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
