@@ -570,29 +570,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save user sportsbook preferences (for marketing/community data)
+  const VALID_SPORTSBOOK_IDS = [
+    'draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet', 'bet365',
+    'barstool', 'betrivers', 'unibet', 'hard_rock', 'prizepicks', 'underdog', 'sleeper', 'other'
+  ];
+  
   app.post("/api/user/sportsbook-preferences", async (req: Request, res: Response) => {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ') || !JWT_SECRET) {
-        return res.status(401).json({ error: 'Authentication required' });
+        // For unauthenticated users, just acknowledge the request without saving
+        // This handles new users during onboarding who may not have a token yet
+        return res.json({ success: true, saved: false, message: 'Preferences noted (login required to save)' });
       }
       
       const token = authHeader.substring(7);
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      let decoded: { userId: number; email: string };
+      try {
+        decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      } catch {
+        return res.json({ success: true, saved: false, message: 'Preferences noted (invalid token)' });
+      }
       
       const { sportsbooks } = req.body;
       if (!Array.isArray(sportsbooks)) {
         return res.status(400).json({ error: 'Sportsbooks must be an array' });
       }
       
+      // Validate sportsbook IDs
+      const validSportsbooks = sportsbooks.filter(id => VALID_SPORTSBOOK_IDS.includes(id));
+      
       // Update user with sportsbook preferences
       await storage.updateUser(decoded.userId, {
-        preferredSportsbooks: sportsbooks,
+        preferredSportsbooks: validSportsbooks,
       });
       
-      console.log(`✅ Sportsbook preferences saved for user ${decoded.userId}:`, sportsbooks);
+      console.log(`✅ Sportsbook preferences saved for user ${decoded.userId}:`, validSportsbooks);
       
-      res.json({ success: true, sportsbooks });
+      res.json({ success: true, saved: true, sportsbooks: validSportsbooks });
     } catch (error) {
       console.error('Error saving sportsbook preferences:', error);
       res.status(500).json({ error: 'Failed to save preferences' });
