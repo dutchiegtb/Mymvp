@@ -179,6 +179,13 @@ export const ambassadors = pgTable("ambassadors", {
   tier: varchar("tier", { length: 20 }).default("rookie"), // 'rookie' | 'pro' | 'elite' | 'legend' | 'icon'
   purchaseAmount: decimal("purchase_amount"), // $749 one-time payment
   stripePaymentId: varchar("stripe_payment_id", { length: 255 }), // Stripe payment reference
+  // Bonus milestone tracking
+  eliteReferrals30Days: integer("elite_referrals_30_days").default(0), // Elite users in 30 days
+  bonus5Elite: boolean("bonus_5_elite").default(false), // $150 bonus claimed
+  bonus25Referrals: boolean("bonus_25_referrals").default(false), // $300 bonus claimed
+  bonus50Referrals: boolean("bonus_50_referrals").default(false), // $500 bonus claimed
+  bonus100Referrals: boolean("bonus_100_referrals").default(false), // $1,500 bonus claimed
+  totalBonusEarned: decimal("total_bonus_earned").default("0"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   uniqueIndex("idx_ambassadors_referral_code").on(table.referralCode),
@@ -189,6 +196,7 @@ export const ambassadorReferrals = pgTable("ambassador_referrals", {
   id: serial("id").primaryKey(),
   ambassadorId: integer("ambassador_id").references(() => ambassadors.id, { onDelete: "cascade" }),
   referredUserId: integer("referred_user_id").references(() => users.id, { onDelete: "cascade" }),
+  subscriptionTier: varchar("subscription_tier", { length: 20 }), // 'web' | 'premium' | 'elite'
   subscriptionAmount: decimal("subscription_amount"),
   commissionEarned: decimal("commission_earned"),
   status: varchar("status", { length: 20 }).default("pending"), // 'pending' | 'paid' | 'cancelled'
