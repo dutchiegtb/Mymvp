@@ -169,12 +169,16 @@ export const ambassadors = pgTable("ambassadors", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   referralCode: varchar("referral_code", { length: 50 }).notNull().unique(),
-  commissionPercent: decimal("commission_percent").default("10"),
+  commissionPercent: decimal("commission_percent").default("20"), // 20% lifetime recurring
   totalReferrals: integer("total_referrals").default(0),
   totalEarnings: decimal("total_earnings").default("0"),
-  payoutThreshold: decimal("payout_threshold").default("50"),
+  payoutThreshold: decimal("payout_threshold").default("25"), // $25 minimum weekly payout
   pendingPayout: decimal("pending_payout").default("0"),
   active: boolean("active").default(true),
+  // Ambassador tier tracking
+  tier: varchar("tier", { length: 20 }).default("rookie"), // 'rookie' | 'pro' | 'elite' | 'legend' | 'icon'
+  purchaseAmount: decimal("purchase_amount"), // $749 one-time payment
+  stripePaymentId: varchar("stripe_payment_id", { length: 255 }), // Stripe payment reference
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   uniqueIndex("idx_ambassadors_referral_code").on(table.referralCode),
