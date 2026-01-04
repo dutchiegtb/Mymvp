@@ -306,6 +306,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ═══════════════════════════════════════════════════════════════
+  // POLYMARKET ROUTES
+  // ═══════════════════════════════════════════════════════════════
+
+  // Get Polymarket prediction markets
+  app.get("/api/polymarket/markets", async (req: Request, res: Response) => {
+    try {
+      const category = req.query.category as string || "all";
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      // Mock data for Polymarket markets (in production, this would fetch from Polymarket API)
+      const mockMarkets = [
+        {
+          id: "pm-1",
+          question: "Will Bitcoin reach $100,000 by end of 2025?",
+          description: "This market resolves YES if Bitcoin price reaches $100,000 USD on any major exchange before December 31, 2025.",
+          outcomes: [
+            { name: "Yes", price: 0.62 },
+            { name: "No", price: 0.38 },
+          ],
+          volume: 2450000,
+          liquidity: 850000,
+          endDate: "2025-12-31T23:59:59Z",
+          category: "economics",
+          url: "https://polymarket.com/event/bitcoin-100k-2025",
+        },
+        {
+          id: "pm-2",
+          question: "Will there be a US recession in 2025?",
+          description: "Market resolves YES if NBER officially declares a recession starting in 2025.",
+          outcomes: [
+            { name: "Yes", price: 0.28 },
+            { name: "No", price: 0.72 },
+          ],
+          volume: 1850000,
+          liquidity: 620000,
+          endDate: "2026-06-30T23:59:59Z",
+          category: "economics",
+          url: "https://polymarket.com/event/us-recession-2025",
+        },
+        {
+          id: "pm-3",
+          question: "Super Bowl LIX Winner?",
+          description: "Which team will win Super Bowl LIX?",
+          outcomes: [
+            { name: "Kansas City Chiefs", price: 0.22 },
+            { name: "Other", price: 0.78 },
+          ],
+          volume: 3200000,
+          liquidity: 980000,
+          endDate: "2025-02-09T23:59:59Z",
+          category: "sports_events",
+          url: "https://polymarket.com/event/super-bowl-lix",
+        },
+        {
+          id: "pm-4",
+          question: "Will GPT-5 be released in 2025?",
+          description: "Market resolves YES if OpenAI releases GPT-5 or equivalent successor model in 2025.",
+          outcomes: [
+            { name: "Yes", price: 0.75 },
+            { name: "No", price: 0.25 },
+          ],
+          volume: 1120000,
+          liquidity: 340000,
+          endDate: "2025-12-31T23:59:59Z",
+          category: "science",
+          url: "https://polymarket.com/event/gpt-5-2025",
+        },
+        {
+          id: "pm-5",
+          question: "Will the Fed cut rates by March 2025?",
+          description: "Market resolves YES if the Federal Reserve cuts the federal funds rate by March 31, 2025.",
+          outcomes: [
+            { name: "Yes", price: 0.85 },
+            { name: "No", price: 0.15 },
+          ],
+          volume: 890000,
+          liquidity: 280000,
+          endDate: "2025-03-31T23:59:59Z",
+          category: "economics",
+          url: "https://polymarket.com/event/fed-rate-cut-march-2025",
+        },
+        {
+          id: "pm-6",
+          question: "Oscar Best Picture 2025?",
+          description: "Which film will win Best Picture at the 2025 Academy Awards?",
+          outcomes: [
+            { name: "Wicked", price: 0.35 },
+            { name: "Other", price: 0.65 },
+          ],
+          volume: 560000,
+          liquidity: 180000,
+          endDate: "2025-03-02T23:59:59Z",
+          category: "entertainment",
+          url: "https://polymarket.com/event/oscar-best-picture-2025",
+        },
+      ];
+
+      // Filter by category if specified
+      let filteredMarkets = mockMarkets;
+      if (category !== "all") {
+        filteredMarkets = mockMarkets.filter(m => m.category === category);
+      }
+
+      // Apply limit
+      filteredMarkets = filteredMarkets.slice(0, limit);
+
+      res.json({
+        markets: filteredMarkets,
+        total: filteredMarkets.length,
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error fetching Polymarket data:", error);
+      res.status(500).json({ error: "Failed to fetch prediction markets" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
   // AUTH ROUTES
   // ═══════════════════════════════════════════════════════════════
   

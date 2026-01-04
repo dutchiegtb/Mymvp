@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
@@ -14,9 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info, Search, ChevronDown, ExternalLink, Gamepad2, Swords, Circle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SPORTS_BY_CATEGORY } from "@shared/schema";
 import type { ParlayLeg } from "@/components/ParlayBuilder";
 
 interface EVPick {
@@ -96,6 +99,24 @@ interface SimulatorData {
   chartData: { date: string; hypotheticalGain: number; cumulative: number }[];
 }
 
+interface PolymarketMarket {
+  id: string;
+  question: string;
+  description?: string;
+  outcomes: { name: string; price: number }[];
+  volume: number;
+  liquidity?: number;
+  endDate?: string;
+  category?: string;
+  url: string;
+}
+
+interface PolymarketResponse {
+  markets: PolymarketMarket[];
+  total: number;
+  lastUpdated: string;
+}
+
 const sportKeyMap: Record<string, string> = {
   'all': 'all',
   'nba': 'basketball_nba',
@@ -104,6 +125,48 @@ const sportKeyMap: Record<string, string> = {
   'nhl': 'icehockey_nhl',
   'soccer': 'soccer_epl',
 };
+
+const categoryIcons: Record<string, JSX.Element> = {
+  basketball: <Dribbble className="h-4 w-4" />,
+  football: <Hexagon className="h-4 w-4" />,
+  baseball: <CircleDot className="h-4 w-4" />,
+  hockey: <Disc className="h-4 w-4" />,
+  soccer: <Target className="h-4 w-4" />,
+  combat: <Swords className="h-4 w-4" />,
+  tennis: <Circle className="h-4 w-4" />,
+  golf: <Circle className="h-4 w-4" />,
+  esports: <Gamepad2 className="h-4 w-4" />,
+  other: <Trophy className="h-4 w-4" />,
+};
+
+const categoryLabels: Record<string, string> = {
+  basketball: "Basketball",
+  football: "Football",
+  baseball: "Baseball",
+  hockey: "Hockey",
+  soccer: "Soccer",
+  combat: "Combat",
+  tennis: "Tennis",
+  golf: "Golf",
+  esports: "Esports",
+  other: "Other",
+};
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+}
 
 function AgeGateModal({ open, onComplete }: { open: boolean; onComplete: () => void }) {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
@@ -194,29 +257,186 @@ function AgeGateModal({ open, onComplete }: { open: boolean; onComplete: () => v
   );
 }
 
+function OnboardingTutorial({ open, onComplete }: { open: boolean; onComplete: () => void }) {
+  const [step, setStep] = useState(0);
+  
+  const steps = [
+    {
+      title: "Welcome to MVP!",
+      icon: <Trophy className="h-12 w-12 text-[#00FF7F]" />,
+      description: "Your edge in sports betting starts here. MVP scans 30+ sportsbooks in real-time to find +EV (positive expected value) betting opportunities.",
+      details: [
+        "Compare odds across all major sportsbooks instantly",
+        "Identify value picks with our proprietary EV algorithm",
+        "Build smarter parlays with calculated risk metrics",
+      ],
+    },
+    {
+      title: "Picks Tab",
+      icon: <Target className="h-12 w-12 text-primary" />,
+      description: "Browse value picks sorted by expected value. Each pick shows the best book, odds comparison, and EV percentage.",
+      details: [
+        "Click any pick to add it to your parlay builder",
+        "Filter by sport to focus on what you know",
+        "Higher EV% means more potential value",
+      ],
+    },
+    {
+      title: "Polymarket Tab",
+      icon: <TrendingUp className="h-12 w-12 text-[#00CFFF]" />,
+      description: "Explore prediction markets beyond traditional sports betting. Track markets on politics, economics, entertainment, and more.",
+      details: [
+        "See real-time prices and trading volume",
+        "Track market sentiment on current events",
+        "Quick links to trade on Polymarket",
+      ],
+    },
+    {
+      title: "Social & Gamification",
+      icon: <Users className="h-12 w-12 text-warning" />,
+      description: "Join our community of sharp bettors. Earn badges, track your streak, and compete on the leaderboard.",
+      details: [
+        "Earn XP and level up by tracking picks",
+        "Build daily streaks for bonus rewards",
+        "See what winning bettors are tracking",
+      ],
+    },
+    {
+      title: "You're Ready!",
+      icon: <PartyPopper className="h-12 w-12 text-[#00FF7F]" />,
+      description: "You're all set to find value. Remember: MVP is for entertainment and education only. Always bet responsibly.",
+      details: [
+        "Start exploring today's top picks",
+        "Check back often - odds update in real-time",
+        "Good luck and have fun!",
+      ],
+    },
+  ];
+
+  const handleNext = () => {
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+    } else {
+      localStorage.setItem('mvp_tutorial_complete', 'true');
+      onComplete();
+    }
+  };
+
+  const handleSkip = () => {
+    localStorage.setItem('mvp_tutorial_complete', 'true');
+    onComplete();
+  };
+
+  const currentStep = steps[step];
+
+  const handleDismiss = (open: boolean) => {
+    if (!open) {
+      localStorage.setItem('mvp_tutorial_complete', 'true');
+      onComplete();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleDismiss}>
+      <DialogContent className="sm:max-w-md border-2 border-primary/50 bg-background" data-testid="onboarding-modal">
+        <DialogHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            {currentStep.icon}
+          </div>
+          <DialogTitle className="text-2xl font-bold">
+            {currentStep.title}
+          </DialogTitle>
+          <DialogDescription className="text-base mt-2">
+            {currentStep.description}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-3 py-4">
+          {currentStep.details.map((detail, idx) => (
+            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                {idx + 1}
+              </div>
+              <span className="text-sm">{detail}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-center gap-1.5 py-2">
+          {steps.map((_, idx) => (
+            <div
+              key={idx}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                idx === step ? 'bg-primary' : 'bg-muted-foreground/30'
+              }`}
+              data-testid={`tutorial-dot-${idx}`}
+            />
+          ))}
+        </div>
+
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button 
+            onClick={handleNext}
+            className="w-full bg-[#00FF7F] hover:bg-[#00FF7F]/80 text-black font-semibold"
+            data-testid="button-tutorial-next"
+          >
+            {step === steps.length - 1 ? "Get Started" : "Next"}
+          </Button>
+          {step < steps.length - 1 && (
+            <Button 
+              variant="ghost"
+              onClick={handleSkip}
+              className="w-full"
+              data-testid="button-tutorial-skip"
+            >
+              Skip Tutorial
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Dashboard() {
   const style = {
     "--sidebar-width": "16rem",
   };
 
   const [showAgeGate, setShowAgeGate] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [selectedSport, setSelectedSport] = useState("all");
-  const [activeMainTab, setActiveMainTab] = useState<'picks' | 'social' | 'simulator' | 'settings'>('picks');
+  const [activeMainTab, setActiveMainTab] = useState<'picks' | 'polymarket' | 'social' | 'simulator' | 'settings'>('picks');
   const [leaderboardTimeframe, setLeaderboardTimeframe] = useState('weekly');
   const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   useEffect(() => {
     const onboarded = localStorage.getItem('mvp_onboarded');
     if (!onboarded) {
       setShowAgeGate(true);
+    } else {
+      const tutorialComplete = localStorage.getItem('mvp_tutorial_complete');
+      if (!tutorialComplete) {
+        setShowTutorial(true);
+      }
     }
   }, []);
 
   const handleAgeGateComplete = () => {
     setShowAgeGate(false);
+    const tutorialComplete = localStorage.getItem('mvp_tutorial_complete');
+    if (!tutorialComplete) {
+      setShowTutorial(true);
+    }
   };
 
-  const sportApiKey = sportKeyMap[selectedSport] || 'all';
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+  };
+
+  const sportApiKey = sportKeyMap[selectedSport] || selectedSport;
 
   const { data: evPicksData, isLoading: evLoading } = useQuery<EVPicksResponse>({
     queryKey: ['/api/picks/ev', { sport: sportApiKey }],
@@ -236,6 +456,16 @@ export default function Dashboard() {
       return res.json();
     },
     refetchInterval: 60000,
+  });
+
+  const { data: polymarketData, isLoading: polymarketLoading } = useQuery<PolymarketResponse>({
+    queryKey: ['/api/polymarket/markets'],
+    queryFn: async () => {
+      const res = await fetch('/api/polymarket/markets');
+      if (!res.ok) throw new Error('Failed to fetch Polymarket data');
+      return res.json();
+    },
+    refetchInterval: 120000,
   });
 
   const { data: userStats } = useQuery<UserStats>({
@@ -270,15 +500,6 @@ export default function Dashboard() {
     }
   };
 
-  const sports = [
-    { id: 'all', label: 'All Sports' },
-    { id: 'nba', label: 'NBA' },
-    { id: 'nfl', label: 'NFL' },
-    { id: 'mlb', label: 'MLB' },
-    { id: 'nhl', label: 'NHL' },
-    { id: 'soccer', label: 'Soccer' },
-  ];
-
   const evPicks = evPicksData?.picks || [];
   const topPicks = (topPicksData?.picks || []).map(pick => ({
     id: pick.id,
@@ -294,7 +515,20 @@ export default function Dashboard() {
     reasoning: pick.reasoning,
   }));
 
-  const valuePicks = evPicks.map(pick => ({
+  const filteredPicks = useMemo(() => {
+    if (!debouncedSearch.trim()) return evPicks;
+    
+    const searchLower = debouncedSearch.toLowerCase();
+    return evPicks.filter(pick => 
+      pick.game.toLowerCase().includes(searchLower) ||
+      pick.selection.toLowerCase().includes(searchLower) ||
+      pick.market.toLowerCase().includes(searchLower) ||
+      pick.sport.toLowerCase().includes(searchLower) ||
+      pick.bestBook.toLowerCase().includes(searchLower)
+    );
+  }, [evPicks, debouncedSearch]);
+
+  const valuePicks = filteredPicks.map(pick => ({
     id: pick.id,
     playerName: pick.selection,
     statType: pick.market,
@@ -306,7 +540,7 @@ export default function Dashboard() {
     timestamp: new Date(pick.commenceTime).toLocaleTimeString(),
   }));
 
-  const mockOddsData = evPicks.slice(0, 5).map(pick => ({
+  const mockOddsData = filteredPicks.slice(0, 5).map(pick => ({
     id: pick.id,
     player: pick.selection,
     stat: pick.market,
@@ -343,14 +577,19 @@ export default function Dashboard() {
   const xpProgress = userStats ? (userStats.xp / userStats.xpToNextLevel) * 100 : 0;
 
   const handleSidebarTabChange = (tab: string) => {
-    if (tab === 'picks' || tab === 'social' || tab === 'simulator' || tab === 'settings') {
+    if (tab === 'picks' || tab === 'polymarket' || tab === 'social' || tab === 'simulator' || tab === 'settings') {
       setActiveMainTab(tab);
     }
   };
 
+  const handleSportSelect = useCallback((sportKey: string) => {
+    setSelectedSport(sportKey);
+  }, []);
+
   return (
     <>
       <AgeGateModal open={showAgeGate} onComplete={handleAgeGateComplete} />
+      <OnboardingTutorial open={showTutorial} onComplete={handleTutorialComplete} />
       
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
@@ -368,6 +607,29 @@ export default function Dashboard() {
                     Updated: {new Date(evPicksData.lastUpdated).toLocaleTimeString()}
                   </span>
                 )}
+              </div>
+
+              <div className="flex-1 max-w-md mx-4 hidden md:block">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search picks by game, player, team..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4"
+                    data-testid="input-search"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-clear-search"
+                    >
+                      x
+                    </button>
+                  )}
+                </div>
               </div>
               
               <div className="flex items-center gap-3 flex-wrap">
@@ -403,6 +665,18 @@ export default function Dashboard() {
               >
                 <Target className="h-4 w-4" />
                 <span>Picks</span>
+              </button>
+              <button
+                onClick={() => setActiveMainTab('polymarket')}
+                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  activeMainTab === 'polymarket' 
+                    ? 'border-primary text-primary font-semibold' 
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-main-polymarket"
+              >
+                <TrendingUp className="h-4 w-4" />
+                <span>Polymarket</span>
               </button>
               <button
                 onClick={() => setActiveMainTab('social')}
@@ -445,88 +719,239 @@ export default function Dashboard() {
                         </p>
                       </div>
 
-                      <Tabs value={selectedSport} onValueChange={setSelectedSport} className="space-y-6">
-                        <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 p-2">
-                          {sports.map((sport) => (
-                            <TabsTrigger
-                              key={sport.id}
-                              value={sport.id}
-                              className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                              data-testid={`tab-sport-${sport.id}`}
-                            >
-                              <SportIcon sport={sport.id} />
-                              <span>{sport.label}</span>
-                            </TabsTrigger>
+                      <div className="md:hidden mb-4">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="text"
+                            placeholder="Search picks..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 pr-4"
+                            data-testid="input-search-mobile"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto pb-2">
+                        <div className="flex items-center gap-2 min-w-max">
+                          <Button
+                            variant={selectedSport === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handleSportSelect('all')}
+                            className="gap-2"
+                            data-testid="button-sport-all"
+                          >
+                            <Trophy className="h-4 w-4" />
+                            All Sports
+                          </Button>
+                          
+                          {Object.entries(SPORTS_BY_CATEGORY).map(([category, sports]) => (
+                            <DropdownMenu key={category}>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant={sports.some(s => s.key === selectedSport) ? 'default' : 'outline'}
+                                  size="sm"
+                                  className="gap-2"
+                                  data-testid={`dropdown-category-${category}`}
+                                >
+                                  {categoryIcons[category]}
+                                  {categoryLabels[category]}
+                                  <ChevronDown className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" data-testid={`dropdown-content-${category}`}>
+                                {sports.map((sport) => (
+                                  <DropdownMenuItem
+                                    key={sport.key}
+                                    onClick={() => handleSportSelect(sport.key)}
+                                    className={selectedSport === sport.key ? 'bg-primary/10' : ''}
+                                    data-testid={`menu-item-${sport.key}`}
+                                  >
+                                    {sport.name}
+                                    {selectedSport === sport.key && (
+                                      <Badge variant="secondary" className="ml-2 text-xs">Active</Badge>
+                                    )}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           ))}
-                        </TabsList>
+                        </div>
+                      </div>
 
-                        <TabsContent value={selectedSport} className="space-y-6">
-                          <div className="grid lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 space-y-6">
-                              {topPicksLoading ? (
-                                <div className="flex items-center justify-center py-12">
-                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                              ) : (
-                                <TopPicksSection picks={topPicks.slice(0, 3)} />
-                              )}
+                      {debouncedSearch && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-normal">
+                            Search: "{debouncedSearch}"
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {filteredPicks.length} result{filteredPicks.length !== 1 ? 's' : ''}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSearchQuery("")}
+                            data-testid="button-clear-search-badge"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      )}
 
-                              <div>
-                                <div className="flex items-center justify-between gap-2 mb-4">
-                                  <h2 className="text-2xl font-bold">Value Picks</h2>
-                                  <Badge variant="outline" className="font-mono">
-                                    {evPicks.length} picks found
-                                  </Badge>
-                                </div>
-                                {evLoading ? (
-                                  <div className="flex items-center justify-center py-12">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                  </div>
-                                ) : valuePicks.length === 0 ? (
-                                  <div className="text-center py-12 text-muted-foreground">
-                                    <p>No value picks found for {selectedSport === 'all' ? 'any sport' : selectedSport.toUpperCase()}</p>
-                                    <p className="text-sm mt-2">Check back when games are live!</p>
-                                  </div>
+                      <div className="grid lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 space-y-6">
+                          {!debouncedSearch && (
+                            topPicksLoading ? (
+                              <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              </div>
+                            ) : (
+                              <TopPicksSection picks={topPicks.slice(0, 3)} />
+                            )
+                          )}
+
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-4">
+                              <h2 className="text-2xl font-bold">Value Picks</h2>
+                              <Badge variant="outline" className="font-mono">
+                                {filteredPicks.length} picks found
+                              </Badge>
+                            </div>
+                            {evLoading ? (
+                              <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              </div>
+                            ) : valuePicks.length === 0 ? (
+                              <div className="text-center py-12 text-muted-foreground">
+                                {debouncedSearch ? (
+                                  <>
+                                    <p>No picks found matching "{debouncedSearch}"</p>
+                                    <p className="text-sm mt-2">Try a different search term</p>
+                                  </>
                                 ) : (
-                                  <div className="grid gap-6">
-                                    {valuePicks.map((pick, index) => (
-                                      <div key={pick.id} onClick={() => handleAddToParlay(evPicks[index])} className="cursor-pointer">
-                                        <ValuePickCard pick={pick} />
-                                      </div>
-                                    ))}
-                                  </div>
+                                  <>
+                                    <p>No value picks found for {selectedSport === 'all' ? 'any sport' : selectedSport}</p>
+                                    <p className="text-sm mt-2">Check back when games are live!</p>
+                                  </>
                                 )}
                               </div>
-
-                              {mockOddsData.length > 0 && (
-                                <div>
-                                  <h2 className="text-2xl font-bold mb-4">Odds Comparison</h2>
-                                  <OddsComparisonTable data={mockOddsData} sportsbooks={sportsbooks} />
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="space-y-6">
-                              <ParlayBuilder 
-                                legs={parlayLegs} 
-                                onRemoveLeg={handleRemoveLeg}
-                                onClear={handleClearParlay}
-                              />
-
-                              <PaywallCard
-                                tierName="Premium"
-                                price="$24.99/mo"
-                                benefits={[
-                                  'Sharp picks',
-                                  'Discord bot access',
-                                  'Line movement alerts',
-                                ]}
-                              />
-                            </div>
+                            ) : (
+                              <div className="grid gap-6">
+                                {valuePicks.map((pick, index) => (
+                                  <div key={pick.id} onClick={() => handleAddToParlay(filteredPicks[index])} className="cursor-pointer">
+                                    <ValuePickCard pick={pick} />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </TabsContent>
-                      </Tabs>
+
+                          {mockOddsData.length > 0 && !debouncedSearch && (
+                            <div>
+                              <h2 className="text-2xl font-bold mb-4">Odds Comparison</h2>
+                              <OddsComparisonTable data={mockOddsData} sportsbooks={sportsbooks} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-6">
+                          <ParlayBuilder 
+                            legs={parlayLegs} 
+                            onRemoveLeg={handleRemoveLeg}
+                            onClear={handleClearParlay}
+                          />
+
+                          <PaywallCard
+                            tierName="Premium"
+                            price="$24.99/mo"
+                            benefits={[
+                              'Sharp picks',
+                              'Discord bot access',
+                              'Line movement alerts',
+                            ]}
+                          />
+                        </div>
+                      </div>
                     </>
+                  )}
+
+                  {activeMainTab === 'polymarket' && (
+                    <div className="space-y-6">
+                      <div>
+                        <h1 className="text-3xl font-bold mb-2" data-testid="text-polymarket-title">
+                          Prediction Markets
+                        </h1>
+                        <p className="text-muted-foreground">
+                          Real-time prediction markets from Polymarket
+                        </p>
+                      </div>
+
+                      {polymarketLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                      ) : !polymarketData?.markets?.length ? (
+                        <Card className="p-8 text-center">
+                          <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                          <h3 className="text-lg font-semibold mb-2">No Markets Available</h3>
+                          <p className="text-muted-foreground">
+                            Prediction markets will appear here once data is available.
+                          </p>
+                        </Card>
+                      ) : (
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {polymarketData.markets.map((market) => (
+                            <Card key={market.id} className="hover-elevate" data-testid={`polymarket-card-${market.id}`}>
+                              <CardHeader className="pb-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <CardTitle className="text-base font-medium line-clamp-2">
+                                    {market.question}
+                                  </CardTitle>
+                                  {market.category && (
+                                    <Badge variant="secondary" className="shrink-0 text-xs">
+                                      {market.category}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                  {market.outcomes.slice(0, 2).map((outcome, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                                      <span className="text-sm font-medium">{outcome.name}</span>
+                                      <span className={`text-sm font-bold ${
+                                        outcome.price > 0.5 ? 'text-success' : 'text-muted-foreground'
+                                      }`}>
+                                        {(outcome.price * 100).toFixed(0)}%
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                  <span>Volume: ${market.volume.toLocaleString()}</span>
+                                  {market.endDate && (
+                                    <span>Ends: {new Date(market.endDate).toLocaleDateString()}</span>
+                                  )}
+                                </div>
+                                
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full gap-2"
+                                  onClick={() => window.open(market.url, '_blank')}
+                                  data-testid={`button-polymarket-${market.id}`}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  View on Polymarket
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {activeMainTab === 'social' && (
@@ -940,52 +1365,47 @@ export default function Dashboard() {
                             </Button>
                           </CardContent>
                         </Card>
+
+                        <Card className="md:col-span-2">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Phone className="h-5 w-5" />
+                              Connected Apps
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-[#5865F2]/20 flex items-center justify-center">
+                                    <span className="text-[#5865F2] font-bold">D</span>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">Discord</p>
+                                    <p className="text-sm text-muted-foreground">Not connected</p>
+                                  </div>
+                                </div>
+                                <Button variant="outline" size="sm" data-testid="button-connect-discord">Connect</Button>
+                              </div>
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-[#0088cc]/20 flex items-center justify-center">
+                                    <span className="text-[#0088cc] font-bold">T</span>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">Telegram</p>
+                                    <p className="text-sm text-muted-foreground">Not connected</p>
+                                  </div>
+                                </div>
+                                <Button variant="outline" size="sm" data-testid="button-connect-telegram">Connect</Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
                   )}
 
-                  <footer className="mt-12 pt-6 border-t" data-testid="legal-disclaimer-footer">
-                    <div className="flex flex-col items-center gap-6">
-                      <Card className="w-full bg-destructive/10 border-destructive/30">
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <Shield className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
-                            <div className="space-y-2">
-                              <p className="font-bold text-destructive">Important Notice</p>
-                              <p className="text-sm">
-                                MVP does NOT accept bets, wagers, or hold any user funds. This is an informational and entertainment platform only.
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <div className="flex items-center gap-2 text-warning">
-                        <AlertTriangle className="h-5 w-5" />
-                        <span className="font-semibold">Responsible Gambling</span>
-                      </div>
-
-                      <div className="text-center text-sm text-muted-foreground space-y-3 max-w-2xl">
-                        <p>
-                          <strong>Legal Disclaimer:</strong> MVP is for entertainment and informational purposes only. 
-                          This platform does NOT facilitate real money betting. All performance tracking displays hypothetical results only.
-                        </p>
-                        <p>
-                          <strong>Confidence scores reflect model strength, not outcome certainty.</strong> Past simulated performance does not guarantee future results. 
-                          Sports betting involves significant risk. Never bet more than you can afford to lose. This is NOT financial advice.
-                        </p>
-                        <div className="flex items-center justify-center gap-2 p-4 rounded-lg bg-card border">
-                          <Phone className="h-5 w-5 text-warning" />
-                          <p className="font-bold text-lg">
-                            If you or someone you know has a gambling problem, call <span className="text-warning">1-800-GAMBLER</span>
-                          </p>
-                        </div>
-                        <p className="text-xs">
-                          Must be 21+ to participate in sports betting in most jurisdictions.
-                        </p>
-                      </div>
-                    </div>
-                  </footer>
                 </div>
               </ScrollArea>
             </main>
