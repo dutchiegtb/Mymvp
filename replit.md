@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend Pages
 - **Landing** (`/`) - Marketing page with features and pricing
-- **Dashboard** (`/dashboard`) - Main EV picks, top picks, parlay builder
+- **Dashboard** (`/dashboard`) - Main hub with tabs for Picks, Polymarket, Social, and Simulator; includes search bar and sports category navigation
 - **Login** (`/login`) - User sign in
 - **Register** (`/register`) - New account creation with promo code support
 - **Settings** (`/settings`) - Discord/Telegram bot linking, notification preferences
