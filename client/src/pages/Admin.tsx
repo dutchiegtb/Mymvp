@@ -303,6 +303,7 @@ function UserManagement() {
     queryKey: ["/api/admin/users"],
   });
   const [updatingRole, setUpdatingRole] = useState<number | null>(null);
+  const [updatingTier, setUpdatingTier] = useState<number | null>(null);
   
   const isSuperAdmin = currentUser?.role === 'super_admin';
 
@@ -325,10 +326,36 @@ function UserManagement() {
       } else {
         toast({ title: "Error", description: data.error, variant: "destructive" });
       }
-    } catch (error) {
+    } catch {
       toast({ title: "Error", description: "Failed to update role", variant: "destructive" });
     } finally {
       setUpdatingRole(null);
+    }
+  };
+
+  const updateUserTier = async (userId: number, newTier: string) => {
+    setUpdatingTier(userId);
+    try {
+      const token = localStorage.getItem("mvp_token");
+      const response = await fetch(`/api/admin/users/${userId}/tier`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ tier: newTier }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({ title: "Success", description: `User tier updated to ${newTier}` });
+        refetch();
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to update tier", variant: "destructive" });
+    } finally {
+      setUpdatingTier(null);
     }
   };
 
@@ -381,17 +408,34 @@ function UserManagement() {
                   {user.subscriptionTier?.toUpperCase() || 'FREE'}
                 </span>
                 {isSuperAdmin && user.role !== 'super_admin' && (
-                  <select
-                    className="bg-background border border-border rounded px-2 py-1 text-xs"
-                    value={user.role || 'user'}
-                    onChange={(e) => updateUserRole(user.id, e.target.value)}
-                    disabled={updatingRole === user.id}
-                    data-testid={`select-role-${user.id}`}
-                  >
-                    <option value="user">User</option>
-                    <option value="moderator">Moderator</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                  <>
+                    <select
+                      className="bg-background border border-border rounded px-2 py-1 text-xs"
+                      value={user.role || 'user'}
+                      onChange={(e) => updateUserRole(user.id, e.target.value)}
+                      disabled={updatingRole === user.id}
+                      data-testid={`select-role-${user.id}`}
+                    >
+                      <option value="user">User</option>
+                      <option value="moderator">Moderator</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <select
+                      className="bg-background border border-border rounded px-2 py-1 text-xs"
+                      value={user.subscriptionTier || 'free'}
+                      onChange={(e) => updateUserTier(user.id, e.target.value)}
+                      disabled={updatingTier === user.id}
+                      data-testid={`select-tier-${user.id}`}
+                    >
+                      <option value="free">Free</option>
+                      <option value="basic">Basic</option>
+                      <option value="web">Web</option>
+                      <option value="premium">Premium</option>
+                      <option value="elite">Elite</option>
+                      <option value="ambassador">Ambassador</option>
+                      <option value="lifetime_elite">Lifetime Elite</option>
+                    </select>
+                  </>
                 )}
               </div>
             </div>
