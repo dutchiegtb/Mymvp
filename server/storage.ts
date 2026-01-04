@@ -11,6 +11,9 @@ import {
   botUsers,
   botAlerts,
   oddsAudit,
+  ambassadors,
+  ambassadorPayouts,
+  ambassadorReferrals,
   type User,
   type InsertUser,
   type Game,
@@ -21,6 +24,10 @@ import {
   type InsertTopPick,
   type UserParlay,
   type InsertParlay,
+  type Ambassador,
+  type InsertAmbassador,
+  type AmbassadorPayout,
+  type InsertAmbassadorPayout,
 } from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
@@ -64,6 +71,17 @@ export interface IStorage {
   
   // Audit
   logOddsUpdate(gamesUpdated: number, oddsInserted: number, apiCallsUsed: number): Promise<void>;
+  
+  // Ambassadors
+  getAmbassadorByCode(code: string): Promise<Ambassador | undefined>;
+  getAmbassadorByUserId(userId: number): Promise<Ambassador | undefined>;
+  createAmbassador(data: InsertAmbassador): Promise<Ambassador>;
+  updateAmbassadorEarnings(ambassadorId: number, amount: number): Promise<void>;
+  getAllAmbassadors(): Promise<Ambassador[]>;
+  getAmbassadorPayouts(ambassadorId?: number): Promise<AmbassadorPayout[]>;
+  createAmbassadorPayout(data: InsertAmbassadorPayout): Promise<AmbassadorPayout>;
+  markAmbassadorPayoutCompleted(payoutId: number, reference: string): Promise<void>;
+  createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -257,6 +275,86 @@ export class DatabaseStorage implements IStorage {
       gamesUpdated,
       oddsInserted,
       apiCallsUsed,
+    });
+  }
+
+  // Ambassadors
+  async getAmbassadorByCode(code: string): Promise<Ambassador | undefined> {
+    const [ambassador] = await db.select().from(ambassadors).where(eq(ambassadors.referralCode, code.toUpperCase()));
+    return ambassador;
+  }
+
+  async getAmbassadorByUserId(userId: number): Promise<Ambassador | undefined> {
+    const [ambassador] = await db.select().from(ambassadors).where(eq(ambassadors.userId, userId));
+    return ambassador;
+  }
+
+  async createAmbassador(data: InsertAmbassador): Promise<Ambassador> {
+    const [ambassador] = await db.insert(ambassadors).values({
+      ...data,
+      referralCode: data.referralCode.toUpperCase(),
+    }).returning();
+    return ambassador;
+  }
+
+  async updateAmbassadorEarnings(ambassadorId: number, amount: number): Promise<void> {
+    await db
+      .update(ambassadors)
+      .set({
+        pendingPayout: sql`COALESCE(${ambassadors.pendingPayout}, 0) + ${amount.toString()}`,
+        totalEarnings: sql`COALESCE(${ambassadors.totalEarnings}, 0) + ${amount.toString()}`,
+        totalReferrals: sql`COALESCE(${ambassadors.totalReferrals}, 0) + 1`,
+      })
+      .where(eq(ambassadors.id, ambassadorId));
+  }
+
+  async getAllAmbassadors(): Promise<Ambassador[]> {
+    return db.select().from(ambassadors).orderBy(desc(ambassadors.createdAt));
+  }
+
+  async getAmbassadorPayouts(ambassadorId?: number): Promise<AmbassadorPayout[]> {
+    if (ambassadorId) {
+      return db
+        .select()
+        .from(ambassadorPayouts)
+        .where(eq(ambassadorPayouts.ambassadorId, ambassadorId))
+        .orderBy(desc(ambassadorPayouts.createdAt));
+    }
+    return db.select().from(ambassadorPayouts).orderBy(desc(ambassadorPayouts.createdAt));
+  }
+
+  async createAmbassadorPayout(data: InsertAmbassadorPayout): Promise<AmbassadorPayout> {
+    const [payout] = await db.insert(ambassadorPayouts).values(data).returning();
+    
+    // Reduce pending payout for the ambassador
+    await db
+      .update(ambassadors)
+      .set({
+        pendingPayout: sql`GREATEST(0, COALESCE(${ambassadors.pendingPayout}, 0) - ${data.amount})`,
+      })
+      .where(eq(ambassadors.id, data.ambassadorId!));
+    
+    return payout;
+  }
+
+  async markAmbassadorPayoutCompleted(payoutId: number, reference: string): Promise<void> {
+    await db
+      .update(ambassadorPayouts)
+      .set({
+        status: 'completed',
+        payoutReference: reference,
+        processedAt: new Date(),
+      })
+      .where(eq(ambassadorPayouts.id, payoutId));
+  }
+
+  async createAmbassadorReferral(ambassadorId: number, referredUserId: number, subscriptionAmount: number, commissionEarned: number): Promise<void> {
+    await db.insert(ambassadorReferrals).values({
+      ambassadorId,
+      referredUserId,
+      subscriptionAmount: subscriptionAmount.toString(),
+      commissionEarned: commissionEarned.toString(),
+      status: 'pending',
     });
   }
 }
