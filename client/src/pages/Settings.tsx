@@ -175,6 +175,8 @@ function AccountSection({ user, isAdmin }: { user: UserData; isAdmin: boolean })
   const tier = tierDisplay[user.subscriptionTier?.toLowerCase()] || tierDisplay.free;
   const TierIcon = tier.icon;
   const isStaff = user.role === 'admin' || user.role === 'super_admin' || user.role === 'moderator';
+  const isAmbassador = user.subscriptionTier === 'ambassador' || user.subscriptionTier === 'lifetime_elite';
+  const showMVPBadge = isAdmin || isAmbassador;
 
   return (
     <Card data-testid="card-account-overview">
@@ -188,6 +190,12 @@ function AccountSection({ user, isAdmin }: { user: UserData; isAdmin: boolean })
             <CardDescription>Your profile and subscription</CardDescription>
           </div>
         </div>
+        {showMVPBadge && (
+          <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-3 py-1" data-testid="badge-mvp">
+            <Crown className="w-3 h-3 mr-1" />
+            MVP
+          </Badge>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
@@ -214,16 +222,21 @@ function AccountSection({ user, isAdmin }: { user: UserData; isAdmin: boolean })
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {isStaff && (
-              <Badge variant="outline" className="flex items-center gap-1">
+              <Badge variant="outline" className="flex items-center gap-1 border-amber-500/50 text-amber-400">
                 <Shield className="w-3 h-3" />
                 {roleDisplay[user.role || 'user']}
               </Badge>
             )}
             {isAdmin && (
-              <Badge className="bg-green-500/20 text-green-400">
+              <Badge className="bg-green-500/20 text-green-400 border border-green-500/30">
                 Full Access
+              </Badge>
+            )}
+            {isAmbassador && !isAdmin && (
+              <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                Ambassador
               </Badge>
             )}
           </div>
@@ -969,29 +982,89 @@ function AmbassadorDashboard({ userId }: { userId: number }) {
   );
 }
 
+interface NewUserForm {
+  email: string;
+  username: string;
+  password: string;
+  role: string;
+  subscriptionTier: string;
+}
+
 function AdminSection({ role, isSuperAdmin }: { role: string; isSuperAdmin: boolean }) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState<NewUserForm>({
+    email: '',
+    username: '',
+    password: '',
+    role: 'user',
+    subscriptionTier: 'free',
+  });
+  const [creating, setCreating] = useState(false);
+
+  const handleCreateUser = async () => {
+    if (!newUser.email || !newUser.password) {
+      toast({ title: "Error", description: "Email and password are required", variant: "destructive" });
+      return;
+    }
+    
+    setCreating(true);
+    try {
+      const token = localStorage.getItem("mvp_token");
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(newUser),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create user");
+      }
+      
+      toast({ title: "Success", description: `User ${newUser.email} created successfully` });
+      setNewUser({ email: '', username: '', password: '', role: 'user', subscriptionTier: 'free' });
+      setShowCreateUser(false);
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to create user", 
+        variant: "destructive" 
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <Card data-testid="card-admin-access">
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20">
               <Shield className="w-5 h-5 text-amber-500" />
             </div>
             <div>
-              <CardTitle className="text-lg">Admin Access</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                Admin Access
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs">
+                  MVP
+                </Badge>
+              </CardTitle>
               <CardDescription>You have {roleDisplay[role]} privileges</CardDescription>
             </div>
           </div>
-          <Badge variant="secondary" className="text-amber-500">
+          <Badge variant="outline" className="border-amber-500/50 text-amber-400">
             {roleDisplay[role]}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button 
-            variant="outline" 
+            variant="default" 
             className="w-full flex items-center justify-center gap-2"
             onClick={() => navigate("/admin")}
             data-testid="button-admin-dashboard"
@@ -1023,33 +1096,136 @@ function AdminSection({ role, isSuperAdmin }: { role: string; isSuperAdmin: bool
       </Card>
 
       {isSuperAdmin && (
-        <Card data-testid="card-super-admin">
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500/10">
-                <Crown className="w-5 h-5 text-red-500" />
+        <>
+          <Card data-testid="card-create-user">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <Users className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Quick User Creation</CardTitle>
+                  <CardDescription>Create new accounts with custom settings</CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-lg">Super Admin Controls</CardTitle>
-                <CardDescription>Full system access and management</CardDescription>
+              <Button 
+                variant={showCreateUser ? "secondary" : "default"}
+                size="sm"
+                onClick={() => setShowCreateUser(!showCreateUser)}
+                data-testid="button-toggle-create-user"
+              >
+                {showCreateUser ? "Cancel" : "Create User"}
+              </Button>
+            </CardHeader>
+            {showCreateUser && (
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="newEmail">Email *</Label>
+                    <Input
+                      id="newEmail"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      data-testid="input-new-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newUsername">Username</Label>
+                    <Input
+                      id="newUsername"
+                      placeholder="username"
+                      value={newUser.username}
+                      onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                      data-testid="input-new-username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">Password *</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      data-testid="input-new-password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newRole">Role</Label>
+                    <select
+                      id="newRole"
+                      className="w-full h-9 px-3 rounded-md border bg-background"
+                      value={newUser.role}
+                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                      data-testid="select-new-role"
+                    >
+                      <option value="user">User</option>
+                      <option value="moderator">Moderator</option>
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="newTier">Subscription Tier</Label>
+                    <select
+                      id="newTier"
+                      className="w-full h-9 px-3 rounded-md border bg-background"
+                      value={newUser.subscriptionTier}
+                      onChange={(e) => setNewUser({ ...newUser, subscriptionTier: e.target.value })}
+                      data-testid="select-new-tier"
+                    >
+                      <option value="free">Free</option>
+                      <option value="basic">Basic</option>
+                      <option value="premium">Premium</option>
+                      <option value="elite">Elite</option>
+                      <option value="ambassador">Ambassador</option>
+                      <option value="lifetime_elite">Lifetime Elite</option>
+                    </select>
+                  </div>
+                </div>
+                <Button 
+                  className="w-full" 
+                  onClick={handleCreateUser}
+                  disabled={creating}
+                  data-testid="button-submit-create-user"
+                >
+                  {creating ? "Creating..." : "Create User Account"}
+                </Button>
+              </CardContent>
+            )}
+          </Card>
+
+          <Card data-testid="card-super-admin">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500/10">
+                  <Crown className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Super Admin Controls</CardTitle>
+                  <CardDescription>Full system access and management</CardDescription>
+                </div>
               </div>
-            </div>
-            <Badge className="bg-red-500/20 text-red-400">Super Admin</Badge>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg">
-              <p className="text-sm text-red-200">
-                As a Super Admin, you have full access to:
-              </p>
-              <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                <li>• Grant/revoke admin access to any user</li>
-                <li>• Change user subscription tiers</li>
-                <li>• Process ambassador payouts</li>
-                <li>• System configuration and settings</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+              <Badge className="bg-red-500/20 text-red-400">Super Admin</Badge>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg">
+                <p className="text-sm text-red-200">
+                  As a Super Admin, you have full access to:
+                </p>
+                <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+                  <li>• Grant/revoke admin access to any user</li>
+                  <li>• Change user subscription tiers</li>
+                  <li>• Create new user accounts</li>
+                  <li>• Process ambassador payouts</li>
+                  <li>• System configuration and settings</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
