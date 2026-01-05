@@ -179,16 +179,21 @@ export default function Login() {
                   </Button>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="rememberMe"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked === true)}
-                  data-testid="checkbox-remember-me"
-                />
-                <Label htmlFor="rememberMe" className="text-sm cursor-pointer">
-                  Remember me for 30 days
-                </Label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rememberMe"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    data-testid="checkbox-remember-me"
+                  />
+                  <Label htmlFor="rememberMe" className="text-sm cursor-pointer">
+                    Remember me for 30 days
+                  </Label>
+                </div>
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline" data-testid="link-forgot-password">
+                  Forgot password?
+                </Link>
               </div>
               <Button 
                 type="submit" 

@@ -332,6 +332,16 @@ export const trackedPicks = pgTable("tracked_picks", {
 // Payout type for formatting
 export type PayoutStatus = "pending" | "processing" | "completed" | "failed";
 
+// Password Reset Tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
@@ -351,6 +361,7 @@ export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id:
 export const insertPostLikeSchema = createInsertSchema(postLikes).omit({ id: true, createdAt: true });
 export const insertPostCommentSchema = createInsertSchema(postComments).omit({ id: true, createdAt: true });
 export const insertTrackedPickSchema = createInsertSchema(trackedPicks).omit({ id: true, trackedAt: true });
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true, usedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -389,6 +400,8 @@ export type PostLike = typeof postLikes.$inferSelect;
 export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;
 export type PostComment = typeof postComments.$inferSelect;
 export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 
 // Subscription tiers
 export type SubscriptionTier = "free" | "web" | "premium" | "elite";

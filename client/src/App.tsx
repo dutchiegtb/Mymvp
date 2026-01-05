@@ -7,6 +7,7 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import ForgotPassword from "@/pages/ForgotPassword";
 import Settings from "@/pages/Settings";
 import Roadmap from "@/pages/Roadmap";
 import Admin from "@/pages/Admin";
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/settings" component={Settings} />
       <Route path="/roadmap" component={Roadmap} />
       <Route path="/admin" component={Admin} />
