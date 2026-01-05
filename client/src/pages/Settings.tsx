@@ -213,13 +213,24 @@ function AccountSection({ user, isAdmin }: { user: UserData; isAdmin: boolean })
 
         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <TierIcon className={`w-5 h-5 ${tier.colorClass}`} />
+            {showMVPBadge ? (
+              <Crown className="w-5 h-5 text-amber-400" />
+            ) : (
+              <TierIcon className={`w-5 h-5 ${tier.colorClass}`} />
+            )}
             <div>
               <p className="text-sm text-muted-foreground">Current Plan</p>
-              <p className={`font-semibold ${tier.colorClass}`} data-testid="text-subscription-tier">
-                {tier.name}
-                {user.isLifetime && <span className="ml-1 text-xs">(Lifetime)</span>}
-              </p>
+              {showMVPBadge ? (
+                <p className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500" data-testid="text-subscription-tier">
+                  MVP
+                  {user.isLifetime && <span className="ml-1 text-xs text-amber-400/70">(Lifetime)</span>}
+                </p>
+              ) : (
+                <p className={`font-semibold ${tier.colorClass}`} data-testid="text-subscription-tier">
+                  {tier.name}
+                  {user.isLifetime && <span className="ml-1 text-xs">(Lifetime)</span>}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
