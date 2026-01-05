@@ -16,6 +16,7 @@ import {
   ambassadorReferrals,
   badges,
   userBadges,
+  passwordResetTokens,
   type User,
   type InsertUser,
   type Game,
@@ -34,6 +35,8 @@ import {
   type InsertBadge,
   type UserBadge,
   type InsertUserBadge,
+  type PasswordResetToken,
+  type InsertPasswordResetToken,
 } from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
@@ -101,6 +104,12 @@ export interface IStorage {
   getAmbassadorStats(): Promise<{ ambassadorId: number; referralCount: number; totalCommission: number }[]>;
   checkAndAwardBonusMilestones(ambassadorId: number): Promise<{ bonusType: string; amount: number } | null>;
   updateAmbassadorTier(ambassadorId: number): Promise<string>;
+  
+  // Password Reset
+  createPasswordResetToken(data: { userId: number; token: string; expiresAt: Date }): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(tokenId: number): Promise<void>;
+  getPendingPasswordResets(): Promise<{ id: number; email: string; token: string; expiresAt: Date; createdAt: Date }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -585,6 +594,54 @@ export class DatabaseStorage implements IStorage {
     }
 
     return newTier;
+  }
+
+  // Password Reset
+  async createPasswordResetToken(data: { userId: number; token: string; expiresAt: Date }): Promise<PasswordResetToken> {
+    const [token] = await db.insert(passwordResetTokens).values({
+      userId: data.userId,
+      token: data.token,
+      expiresAt: data.expiresAt,
+    }).returning();
+    return token;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [result] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return result;
+  }
+
+  async markPasswordResetTokenUsed(tokenId: number): Promise<void> {
+    await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, tokenId));
+  }
+
+  async getPendingPasswordResets(): Promise<{ id: number; email: string; token: string; expiresAt: Date; createdAt: Date }[]> {
+    const now = new Date();
+    const results = await db
+      .select({
+        id: passwordResetTokens.id,
+        email: users.email,
+        token: passwordResetTokens.token,
+        expiresAt: passwordResetTokens.expiresAt,
+        createdAt: passwordResetTokens.createdAt,
+      })
+      .from(passwordResetTokens)
+      .innerJoin(users, eq(passwordResetTokens.userId, users.id))
+      .where(
+        and(
+          gt(passwordResetTokens.expiresAt, now),
+          sql`${passwordResetTokens.usedAt} IS NULL`
+        )
+      )
+      .orderBy(desc(passwordResetTokens.createdAt));
+    
+    return results.map(r => ({
+      id: r.id,
+      email: r.email,
+      token: r.token,
+      expiresAt: r.expiresAt!,
+      createdAt: r.createdAt!,
+    }));
   }
 }
 

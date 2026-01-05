@@ -876,6 +876,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Password reset - request reset token
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+      
+      // Look up user
+      const user = await storage.getUserByEmail(email.toLowerCase());
+      
+      // Always return success to prevent email enumeration
+      if (!user) {
+        return res.json({ success: true, message: 'If an account exists, reset instructions will be sent.' });
+      }
+      
+      // Generate secure token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+      
+      // Store token in database
+      await storage.createPasswordResetToken({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
+      
+      console.log(`🔑 Password reset requested for ${email}`);
+      
+      // In production, this would send an email
+      // For now, admins can view pending resets in the admin panel
+      
+      res.json({ success: true, message: 'If an account exists, reset instructions will be sent.' });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ error: 'Failed to process request' });
+    }
+  });
+
+  // Password reset - reset with token
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Token and new password are required' });
+      }
+      
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      
+      // Find valid token
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ error: 'Invalid or expired reset token' });
+      }
+      
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ error: 'Reset token has expired' });
+      }
+      
+      if (resetToken.usedAt) {
+        return res.status(400).json({ error: 'Reset token has already been used' });
+      }
+      
+      // Hash new password
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      
+      // Update user password
+      await storage.updateUser(resetToken.userId!, { passwordHash });
+      
+      // Mark token as used
+      await storage.markPasswordResetTokenUsed(resetToken.id);
+      
+      console.log(`✅ Password reset completed for user ${resetToken.userId}`);
+      
+      res.json({ success: true, message: 'Password has been reset successfully' });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ error: 'Failed to reset password' });
+    }
+  });
+
+  // Admin: Get pending password reset requests
+  app.get("/api/admin/password-resets", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const pendingResets = await storage.getPendingPasswordResets();
+      res.json({ resets: pendingResets });
+    } catch (error) {
+      console.error('Error fetching password resets:', error);
+      res.status(500).json({ error: 'Failed to fetch password resets' });
+    }
+  });
+
+  // Admin: Reset user password directly
+  app.post("/api/admin/reset-user-password", requireSuperAdmin, async (req: Request, res: Response) => {
+    try {
+      const { userId, newPassword } = req.body;
+      
+      if (!userId || !newPassword) {
+        return res.status(400).json({ error: 'User ID and new password are required' });
+      }
+      
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(userId, { passwordHash });
+      
+      console.log(`✅ Admin reset password for user ${userId}`);
+      res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+      console.error('Error resetting user password:', error);
+      res.status(500).json({ error: 'Failed to reset password' });
+    }
+  });
+
   // Save user sportsbook preferences (for marketing/community data)
   const VALID_SPORTSBOOK_IDS = [
     'draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet', 'bet365',
