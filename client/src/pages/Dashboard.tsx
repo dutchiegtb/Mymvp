@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info, Search, ChevronDown, ExternalLink, Gamepad2, Swords, Circle, Crown } from "lucide-react";
+import { Activity, Loader2, Trophy, Users, TrendingUp, Flame, Star, Heart, MessageCircle, Share2, Target, Award, Zap, Medal, Dribbble, CircleDot, Hexagon, Disc, PartyPopper, Eye, AlertTriangle, Settings, Bell, Moon, User, Shield, Phone, BarChart3, Info, Search, ChevronDown, ExternalLink, Gamepad2, Swords, Circle, Crown, Car, MoreHorizontal } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SPORTS_BY_CATEGORY } from "@shared/schema";
 import type { ParlayLeg } from "@/components/ParlayBuilder";
@@ -138,8 +138,9 @@ const categoryIcons: Record<string, JSX.Element> = {
   combat: <Swords className="h-4 w-4" />,
   tennis: <Circle className="h-4 w-4" />,
   golf: <Circle className="h-4 w-4" />,
+  racing: <Car className="h-4 w-4" />,
   esports: <Gamepad2 className="h-4 w-4" />,
-  other: <Trophy className="h-4 w-4" />,
+  other: <MoreHorizontal className="h-4 w-4" />,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -148,11 +149,12 @@ const categoryLabels: Record<string, string> = {
   baseball: "Baseball",
   hockey: "Hockey",
   soccer: "Soccer",
-  combat: "Combat",
+  combat: "Combat Sports",
   tennis: "Tennis",
   golf: "Golf",
+  racing: "Racing",
   esports: "Esports",
-  other: "Other",
+  other: "More Sports",
 };
 
 function useDebounce<T>(value: T, delay: number): T {
