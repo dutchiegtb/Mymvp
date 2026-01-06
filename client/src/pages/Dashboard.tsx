@@ -516,6 +516,7 @@ export default function Dashboard() {
     username?: string;
     subscriptionTier: string;
     isAdmin?: boolean;
+    role?: string;
   }>({
     queryKey: ['/api/auth/me'],
     queryFn: async () => {
@@ -1492,24 +1493,28 @@ export default function Dashboard() {
                             <div className="flex items-center justify-between p-3 rounded-lg bg-card border">
                               <div>
                                 <p className="font-medium">Current Plan</p>
-                                <p className="text-sm text-muted-foreground">Free tier</p>
+                                <p className="text-sm text-muted-foreground">{(currentUser?.subscriptionTier || 'free').charAt(0).toUpperCase() + (currentUser?.subscriptionTier || 'free').slice(1)} tier</p>
                               </div>
-                              <Badge variant="secondary">Free</Badge>
+                              <Badge variant={currentUser?.subscriptionTier === 'elite' ? 'default' : 'secondary'} className={currentUser?.subscriptionTier === 'elite' ? 'bg-amber-500' : ''}>{(currentUser?.subscriptionTier || 'free').charAt(0).toUpperCase() + (currentUser?.subscriptionTier || 'free').slice(1)}</Badge>
                             </div>
-                            <Button className="w-full" data-testid="button-upgrade-settings">
-                              Upgrade to Pro
-                            </Button>
-                            <div className="pt-2 border-t">
-                              <Link href="/ambassador">
-                                <Button variant="outline" className="w-full border-amber-500/50 text-amber-400 hover:bg-amber-500/10" data-testid="button-become-ambassador">
-                                  <Crown className="h-4 w-4 mr-2" />
-                                  Become Ambassador - $749
-                                </Button>
-                              </Link>
-                              <p className="text-xs text-muted-foreground text-center mt-2">
-                                Lifetime Elite + 20% recurring commission
-                              </p>
-                            </div>
+                            {currentUser?.subscriptionTier === 'free' && (
+                              <Button className="w-full" data-testid="button-upgrade-settings">
+                                Upgrade to Pro
+                              </Button>
+                            )}
+                            {currentUser?.subscriptionTier !== 'ambassador' && (
+                              <div className="pt-2 border-t">
+                                <Link href="/ambassador">
+                                  <Button variant="outline" className="w-full border-amber-500/50 text-amber-400 hover:bg-amber-500/10" data-testid="button-become-ambassador">
+                                    <Crown className="h-4 w-4 mr-2" />
+                                    Become Ambassador - $749
+                                  </Button>
+                                </Link>
+                                <p className="text-xs text-muted-foreground text-center mt-2">
+                                  Lifetime Elite + 20% recurring commission
+                                </p>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
 
@@ -1549,6 +1554,36 @@ export default function Dashboard() {
                             </div>
                           </CardContent>
                         </Card>
+
+                        {isAdmin && (
+                          <Card className="md:col-span-2 border-red-500/30 bg-red-500/5">
+                            <CardHeader>
+                              <CardTitle className="flex items-center gap-2 text-red-400">
+                                <Shield className="h-5 w-5" />
+                                Admin Controls
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <p className="text-sm text-muted-foreground">
+                                You have administrator privileges. Role: <Badge variant="outline" className="ml-1">{currentUser?.role || 'admin'}</Badge>
+                              </p>
+                              <div className="grid md:grid-cols-2 gap-4">
+                                <Link href="/admin">
+                                  <Button className="w-full" variant="outline" data-testid="button-admin-dashboard">
+                                    <BarChart3 className="h-4 w-4 mr-2" />
+                                    Admin Dashboard
+                                  </Button>
+                                </Link>
+                                <Link href="/settings">
+                                  <Button className="w-full" variant="outline" data-testid="button-full-settings">
+                                    <Settings className="h-4 w-4 mr-2" />
+                                    Full Settings Panel
+                                  </Button>
+                                </Link>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
                       </div>
                     </div>
                   )}
