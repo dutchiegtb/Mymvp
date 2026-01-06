@@ -456,6 +456,12 @@ export const SPORTS_BY_CATEGORY = {
     { key: "golf_pga", name: "PGA Tour", active: true },
     { key: "golf_masters", name: "Masters", active: true },
   ],
+  racing: [
+    { key: "motorsport_nascar", name: "NASCAR", active: true },
+    { key: "motorsport_f1", name: "Formula 1", active: true },
+    { key: "motorsport_indycar", name: "IndyCar", active: true },
+    { key: "motorsport_motogp", name: "MotoGP", active: true },
+  ],
   esports: [
     { key: "esports_lol", name: "League of Legends", active: true },
     { key: "esports_csgo", name: "CS:GO / CS2", active: true },
@@ -464,10 +470,14 @@ export const SPORTS_BY_CATEGORY = {
     { key: "esports_cod", name: "Call of Duty", active: true },
   ],
   other: [
-    { key: "cricket_ipl", name: "IPL Cricket", active: true },
+    { key: "cricket_ipl", name: "Cricket (IPL)", active: true },
+    { key: "cricket_test", name: "Cricket (Test)", active: true },
     { key: "rugby_league", name: "Rugby League", active: true },
+    { key: "rugby_union", name: "Rugby Union", active: true },
     { key: "aussie_rules", name: "AFL", active: true },
     { key: "table_tennis", name: "Table Tennis", active: true },
+    { key: "darts", name: "Darts", active: true },
+    { key: "snooker", name: "Snooker", active: true },
   ],
 } as const;
 
