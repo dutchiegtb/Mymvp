@@ -472,7 +472,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // POLYMARKET ROUTES
+  // FANTASY DFS ROUTES
+  // ═══════════════════════════════════════════════════════════════
+
+  // Get Fantasy DFS data based on betting picks
+  app.get("/api/fantasy/data", async (req: Request, res: Response) => {
+    try {
+      const sport = req.query.sport as string || "nfl";
+
+      // Mock fantasy data based on our +EV betting picks
+      const fantasyData = {
+        valuePlays: [
+          {
+            id: "vp-1",
+            name: "Patrick Mahomes",
+            position: "QB",
+            team: "KC",
+            opponent: "@ LV",
+            salary: 8500,
+            projectedPoints: 24.3,
+            valueScore: 92,
+            matchupGrade: "A",
+            relatedPick: { selection: "Over 2.5 TD Passes", evPercent: 4.2 },
+          },
+          {
+            id: "vp-2",
+            name: "Ja'Marr Chase",
+            position: "WR",
+            team: "CIN",
+            opponent: "vs BAL",
+            salary: 7800,
+            projectedPoints: 21.5,
+            valueScore: 88,
+            matchupGrade: "B+",
+            relatedPick: { selection: "Over 85.5 Rec Yards", evPercent: 3.8 },
+          },
+          {
+            id: "vp-3",
+            name: "Saquon Barkley",
+            position: "RB",
+            team: "PHI",
+            opponent: "vs DAL",
+            salary: 8200,
+            projectedPoints: 22.8,
+            valueScore: 85,
+            matchupGrade: "A-",
+            relatedPick: { selection: "Anytime TD Scorer", evPercent: 5.1 },
+          },
+          {
+            id: "vp-4",
+            name: "Travis Kelce",
+            position: "TE",
+            team: "KC",
+            opponent: "@ LV",
+            salary: 7200,
+            projectedPoints: 16.4,
+            valueScore: 83,
+            matchupGrade: "B+",
+          },
+          {
+            id: "vp-5",
+            name: "CeeDee Lamb",
+            position: "WR",
+            team: "DAL",
+            opponent: "@ PHI",
+            salary: 8100,
+            projectedPoints: 20.2,
+            valueScore: 78,
+            matchupGrade: "B",
+            relatedPick: { selection: "Over 6.5 Receptions", evPercent: 2.9 },
+          },
+        ],
+        correlatedStacks: [
+          {
+            id: "cs-1",
+            name: "Chiefs Stack",
+            players: [
+              { name: "Patrick Mahomes", position: "QB", salary: 8500, team: "KC" },
+              { name: "Travis Kelce", position: "TE", salary: 7200, team: "KC" },
+            ],
+            correlationBoost: 12,
+            relatedPick: {
+              selection: "Mahomes Over 2.5 TD Passes",
+              evPercent: 4.2,
+              reasoning: "When Mahomes throws TDs, Kelce is the primary red zone target. Our +EV bet suggests high-scoring game script likely.",
+            },
+          },
+          {
+            id: "cs-2",
+            name: "Bengals Stack",
+            players: [
+              { name: "Joe Burrow", position: "QB", salary: 7600, team: "CIN" },
+              { name: "Ja'Marr Chase", position: "WR", salary: 7800, team: "CIN" },
+            ],
+            correlationBoost: 15,
+            relatedPick: {
+              selection: "Chase Over 85.5 Rec Yards",
+              evPercent: 3.8,
+              reasoning: "Chase averages 28% target share. If he hits yardage, Burrow likely has a big day passing.",
+            },
+          },
+          {
+            id: "cs-3",
+            name: "Eagles Game Stack",
+            players: [
+              { name: "Jalen Hurts", position: "QB", salary: 7900, team: "PHI" },
+              { name: "Saquon Barkley", position: "RB", salary: 8200, team: "PHI" },
+              { name: "CeeDee Lamb", position: "WR", salary: 8100, team: "DAL" },
+            ],
+            correlationBoost: 8,
+            relatedPick: {
+              selection: "PHI vs DAL Over 48.5",
+              evPercent: 3.2,
+              reasoning: "High-scoring rivalry game expected. Stack both offenses for maximum upside.",
+            },
+          },
+        ],
+        avoidPlayers: [
+          { name: "Derrick Henry", position: "RB", team: "BAL", reason: "Tough matchup vs elite run D, our model projects under on rushing" },
+          { name: "Stefon Diggs", position: "WR", team: "HOU", reason: "Shadowed by top CB, low target share expected" },
+          { name: "Alvin Kamara", position: "RB", team: "NO", reason: "Game script favors passing, limited goal-line work" },
+        ],
+        lastUpdated: new Date().toISOString(),
+      };
+
+      res.json(fantasyData);
+    } catch (error) {
+      console.error("Error fetching fantasy data:", error);
+      res.status(500).json({ error: "Failed to fetch fantasy data" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PREDICTION MARKETS ROUTES (Polymarket & Kalshi)
   // ═══════════════════════════════════════════════════════════════
 
   // Get Polymarket prediction markets
@@ -566,6 +698,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
           endDate: "2025-03-02T23:59:59Z",
           category: "entertainment",
           url: "https://polymarket.com/event/oscar-best-picture-2025",
+          platform: "polymarket",
+        },
+        // Kalshi markets (CFTC-regulated)
+        {
+          id: "ka-1",
+          question: "Will S&P 500 close above 6000 by end of Q1 2025?",
+          description: "Market resolves YES if S&P 500 closes above 6000 on March 31, 2025. Kalshi is CFTC-regulated.",
+          outcomes: [
+            { name: "Yes", price: 0.58 },
+            { name: "No", price: 0.42 },
+          ],
+          volume: 1850000,
+          liquidity: 520000,
+          endDate: "2025-03-31T23:59:59Z",
+          category: "economics",
+          url: "https://kalshi.com/markets/sp500-6000-q1-2025",
+          platform: "kalshi",
+          regulated: true,
+        },
+        {
+          id: "ka-2",
+          question: "Will CPI inflation be above 3% in February 2025?",
+          description: "Resolves YES if BLS reports CPI above 3% YoY for Feb 2025. Kalshi - CFTC regulated.",
+          outcomes: [
+            { name: "Yes", price: 0.32 },
+            { name: "No", price: 0.68 },
+          ],
+          volume: 980000,
+          liquidity: 340000,
+          endDate: "2025-03-12T23:59:59Z",
+          category: "economics",
+          url: "https://kalshi.com/markets/cpi-feb-2025",
+          platform: "kalshi",
+          regulated: true,
+        },
+        {
+          id: "ka-3",
+          question: "Will there be a government shutdown in 2025?",
+          description: "Market resolves YES if US federal government has a partial or full shutdown in 2025.",
+          outcomes: [
+            { name: "Yes", price: 0.45 },
+            { name: "No", price: 0.55 },
+          ],
+          volume: 720000,
+          liquidity: 280000,
+          endDate: "2025-12-31T23:59:59Z",
+          category: "politics",
+          url: "https://kalshi.com/markets/govt-shutdown-2025",
+          platform: "kalshi",
+          regulated: true,
+        },
+        {
+          id: "ka-4",
+          question: "Will unemployment rate exceed 4.5% by June 2025?",
+          description: "Resolves YES if BLS reports U3 unemployment above 4.5% for any month through June 2025.",
+          outcomes: [
+            { name: "Yes", price: 0.28 },
+            { name: "No", price: 0.72 },
+          ],
+          volume: 650000,
+          liquidity: 220000,
+          endDate: "2025-07-05T23:59:59Z",
+          category: "economics",
+          url: "https://kalshi.com/markets/unemployment-june-2025",
+          platform: "kalshi",
+          regulated: true,
         },
       ];
 
@@ -753,7 +951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!JWT_SECRET) {
         return res.status(500).json({ error: 'Server configuration error' });
       }
-      const token = jwt.sign({ userId: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ userId: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '30d' });
       
       console.log(`✅ User registered: ${email}`);
       
@@ -872,6 +1070,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Auth check error:', error);
+      res.status(401).json({ error: 'Invalid token' });
+    }
+  });
+
+  // Token refresh endpoint - extends token expiration
+  app.post("/api/auth/refresh", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      
+      const token = authHeader.substring(7);
+      
+      if (!JWT_SECRET) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+      
+      // Verify current token (even if close to expiry)
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      
+      // Get user from database to ensure they still exist and are valid
+      const user = await storage.getUser(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+      
+      // Generate new token with fresh 30-day expiration
+      const newToken = jwt.sign(
+        { userId: user.id, email: user.email },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      
+      console.log(`🔄 Token refreshed for user: ${user.email}`);
+      
+      res.json({
+        success: true,
+        token: newToken,
+      });
+    } catch (error: any) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired - please log in again' });
+      }
+      console.error('Token refresh error:', error);
       res.status(401).json({ error: 'Invalid token' });
     }
   });
