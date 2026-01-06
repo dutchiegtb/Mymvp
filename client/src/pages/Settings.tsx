@@ -99,6 +99,15 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
+        {/* DEBUG BANNER - REMOVE BEFORE LAUNCH */}
+        <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 text-sm" data-testid="debug-banner">
+          <p className="font-bold text-yellow-400">Debug Info (remove before launch):</p>
+          <p>User ID: {user?.id} | Email: {user?.email}</p>
+          <p>isAdmin from API: {String(user?.isAdmin)} | role: {user?.role}</p>
+          <p>isUserAdmin(): {String(isAdmin)} | isSuperAdmin(): {String(isSuperAdmin)}</p>
+          <p>showAdminTab: {String(showAdminTab)} | showAmbassadorTab: {String(showAmbassadorTab)}</p>
+        </div>
+        
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} data-testid="button-back">
             <ArrowLeft className="h-5 w-5" />
