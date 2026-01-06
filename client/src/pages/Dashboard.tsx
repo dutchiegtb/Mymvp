@@ -110,6 +110,8 @@ interface PolymarketMarket {
   endDate?: string;
   category?: string;
   url: string;
+  platform?: 'polymarket' | 'kalshi';
+  regulated?: boolean;
 }
 
 interface PolymarketResponse {
@@ -1005,7 +1007,7 @@ export default function Dashboard() {
                           Prediction Markets
                         </h1>
                         <p className="text-muted-foreground">
-                          Real-time prediction markets from Polymarket
+                          Real-time prediction markets from Polymarket &amp; Kalshi (CFTC-regulated)
                         </p>
                       </div>
 
@@ -1030,11 +1032,23 @@ export default function Dashboard() {
                                   <CardTitle className="text-base font-medium line-clamp-2">
                                     {market.question}
                                   </CardTitle>
-                                  {market.category && (
-                                    <Badge variant="secondary" className="shrink-0 text-xs">
-                                      {market.category}
-                                    </Badge>
-                                  )}
+                                  <div className="flex flex-col gap-1 shrink-0 items-end">
+                                    {market.platform === 'kalshi' ? (
+                                      <Badge className="bg-blue-500/20 text-blue-500 text-xs">
+                                        Kalshi
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs">
+                                        Polymarket
+                                      </Badge>
+                                    )}
+                                    {market.regulated && (
+                                      <Badge variant="secondary" className="text-xs gap-1">
+                                        <Shield className="h-3 w-3" />
+                                        CFTC
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                               </CardHeader>
                               <CardContent className="space-y-4">
@@ -1066,7 +1080,7 @@ export default function Dashboard() {
                                   data-testid={`button-polymarket-${market.id}`}
                                 >
                                   <ExternalLink className="h-4 w-4" />
-                                  View on Polymarket
+                                  View on {market.platform === 'kalshi' ? 'Kalshi' : 'Polymarket'}
                                 </Button>
                               </CardContent>
                             </Card>
