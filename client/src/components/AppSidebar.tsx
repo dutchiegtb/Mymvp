@@ -83,19 +83,31 @@ export default function AppSidebar({ userTier = "free", isAdmin = false, onTabCh
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive(item)}
-                    onClick={() => handleNavClick(item)}
-                  >
-                    <Link 
-                      href={item.isExternal ? '#' : (item.url.includes('#') ? '/dashboard' : item.url)} 
-                      data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                  {item.isExternal ? (
+                    <SidebarMenuButton asChild>
+                      <a 
+                        href="/#pricing"
+                        data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive(item)}
+                      onClick={() => handleNavClick(item)}
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+                      <Link 
+                        href={item.url.includes('#') ? '/dashboard' : item.url} 
+                        data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
