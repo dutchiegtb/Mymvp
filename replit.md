@@ -8,6 +8,11 @@ MVP is a sports betting odds comparison platform that scans 30+ sportsbooks in r
 
 **Legal Compliance (v2.1)**: Full 21+ age gate with disclaimer acceptance, renamed "Profit Tracker" to "Performance Simulator", all "win/profit" language replaced with "hit/hypothetical", prominent responsible gambling disclaimers. MVP does NOT accept bets or hold funds - all results are simulated.
 
+**Version 2.2 Features**:
+- Fantasy Sports DFS Optimizer with value plays, correlated stacks, and avoid players (Premium+ tier gated)
+- Automatic JWT token refresh (30-day expiration with hourly auto-refresh) to prevent session expiry
+- Prediction Markets now includes both Polymarket and Kalshi (CFTC-regulated) with platform badges
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -25,6 +30,7 @@ Preferred communication style: Simple, everyday language.
 ### Frontend Pages
 - **Landing** (`/`) - Marketing page with features and pricing
 - **Dashboard** (`/dashboard`) - Main hub with tabs for Picks, Polymarket, Social, and Simulator; includes search bar and sports category navigation
+- **Fantasy** (`/fantasy`) - DFS Lineup Optimizer with value plays, correlated stacks, and avoid players (Premium+ tier gated)
 - **Login** (`/login`) - User sign in
 - **Register** (`/register`) - New account creation with promo code support
 - **Settings** (`/settings`) - Discord/Telegram bot linking, notification preferences
