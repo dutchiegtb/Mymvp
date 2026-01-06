@@ -21,7 +21,7 @@ const navItems = [
   { title: "Fantasy", url: "/fantasy", icon: Gamepad2 },
   { title: "Social", url: "/dashboard#social", icon: Users },
   { title: "Simulator", url: "/dashboard#simulator", icon: BarChart3 },
-  { title: "Pricing", url: "/#pricing", icon: DollarSign },
+  { title: "Pricing", url: "/", icon: DollarSign, isExternal: true },
 ];
 
 const bottomItems = [
@@ -39,7 +39,11 @@ interface AppSidebarProps {
 export default function AppSidebar({ userTier = "free", isAdmin = false, onTabChange, activeTab }: AppSidebarProps) {
   const [location] = useLocation();
 
-  const handleNavClick = (item: typeof navItems[0]) => {
+  const handleNavClick = (item: typeof navItems[0] & { isExternal?: boolean }) => {
+    if (item.isExternal) {
+      window.location.href = item.url + '#pricing';
+      return;
+    }
     if (item.url.includes('#')) {
       const hash = item.url.split('#')[1];
       if (onTabChange && hash) {
@@ -84,7 +88,10 @@ export default function AppSidebar({ userTier = "free", isAdmin = false, onTabCh
                     isActive={isActive(item)}
                     onClick={() => handleNavClick(item)}
                   >
-                    <Link href={item.url.includes('#') ? '/dashboard' : item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
+                    <Link 
+                      href={item.isExternal ? '#' : (item.url.includes('#') ? '/dashboard' : item.url)} 
+                      data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                    >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -101,11 +108,11 @@ export default function AppSidebar({ userTier = "free", isAdmin = false, onTabCh
               <div className="space-y-2 p-4 rounded-md bg-primary/10 border border-primary/20">
                 <p className="font-semibold text-sm">Upgrade to Pro</p>
                 <p className="text-xs text-muted-foreground">Get unlimited access to all props and EV rankings</p>
-                <Link href="/#pricing">
+                <a href="/#pricing">
                   <Button size="sm" className="w-full mt-2" data-testid="button-upgrade-sidebar">
                     Upgrade Now
                   </Button>
-                </Link>
+                </a>
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
