@@ -35,9 +35,26 @@ const FEATURE_REQUIREMENTS: Record<string, string[]> = {
   'discord_bot': ['premium', 'elite', 'ambassador'],
   'unlimited_picks': ['premium', 'elite', 'ambassador'],
   
+  // Phase 1-2 Features (Premium+)
+  'best_bets': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'sharp_action': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'public_betting': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'officials_basic': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'line_movement': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'trends_full': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'hold_calculator': ['premium', 'elite', 'ambassador', 'lifetime_elite'],
+  
+  // Preview features (Basic gets preview, Premium+ gets full)
+  'best_bets_preview': ['basic', 'web', 'premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'officials_preview': ['basic', 'web', 'premium', 'elite', 'ambassador', 'lifetime_elite'],
+  'trends_preview': ['basic', 'web', 'premium', 'elite', 'ambassador', 'lifetime_elite'],
+  
   // Elite features
   'telegram_ai': ['elite', 'ambassador', 'lifetime_elite'],
   'advanced_analytics': ['elite', 'ambassador', 'lifetime_elite'],
+  'officials_auto': ['elite', 'ambassador', 'lifetime_elite'],
+  'clv_tracking': ['elite', 'ambassador', 'lifetime_elite'],
+  'systems_builder': ['elite', 'ambassador', 'lifetime_elite'],
   
   // Ambassador features
   'ambassador_dashboard': ['ambassador'],
@@ -47,6 +64,179 @@ const FEATURE_REQUIREMENTS: Record<string, string[]> = {
   'user_management': [], // Only admins via role check
   'system_settings': [], // Only admins via role check
 };
+
+// Feature access levels for UI rendering
+export type FeatureAccessLevel = 'locked' | 'preview' | 'full';
+
+export type FeatureName = 
+  | 'best_bets'
+  | 'sharp_action'
+  | 'public_betting'
+  | 'officials_basic'
+  | 'line_movement'
+  | 'trends'
+  | 'hold_calculator'
+  | 'officials_auto'
+  | 'clv_tracking'
+  | 'systems_builder';
+
+/**
+ * Get the access level for a specific feature based on user tier
+ */
+export function getFeatureAccessLevel(
+  feature: FeatureName,
+  user: UserAccess | null | undefined
+): FeatureAccessLevel {
+  // Admin and super_admin have full access to everything
+  if (user?.isAdmin || user?.role === 'admin' || user?.role === 'super_admin') {
+    return 'full';
+  }
+
+  const tier = (user?.subscriptionTier || 'free').toLowerCase();
+  
+  // Feature access map: defines what each tier gets for each feature
+  const accessMap: Record<FeatureName, Record<string, FeatureAccessLevel>> = {
+    best_bets: {
+      free: 'preview',      // See 1 bet
+      basic: 'preview',     // See 3 bets
+      web: 'preview',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    sharp_action: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    public_betting: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    officials_basic: {
+      free: 'preview',
+      basic: 'preview',
+      web: 'preview',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    line_movement: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    trends: {
+      free: 'locked',
+      basic: 'preview',
+      web: 'preview',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    hold_calculator: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'full',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    officials_auto: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'locked',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    clv_tracking: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'locked',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    },
+    systems_builder: {
+      free: 'locked',
+      basic: 'locked',
+      web: 'locked',
+      premium: 'locked',
+      elite: 'full',
+      ambassador: 'full',
+      lifetime_elite: 'full'
+    }
+  };
+
+  return accessMap[feature]?.[tier] || 'locked';
+}
+
+/**
+ * Get the number of items a user can see for preview features
+ */
+export function getPreviewLimit(
+  feature: FeatureName,
+  user: UserAccess | null | undefined
+): number {
+  const tier = (user?.subscriptionTier || 'free').toLowerCase();
+  
+  // Admin gets everything
+  if (user?.isAdmin || user?.role === 'admin' || user?.role === 'super_admin') {
+    return 999;
+  }
+  
+  const previewLimits: Record<FeatureName, Record<string, number>> = {
+    best_bets: {
+      free: 1,
+      basic: 3,
+      web: 3,
+      premium: 999,
+      elite: 999,
+      ambassador: 999,
+      lifetime_elite: 999
+    },
+    trends: {
+      free: 0,
+      basic: 2,
+      web: 2,
+      premium: 999,
+      elite: 999,
+      ambassador: 999,
+      lifetime_elite: 999
+    },
+    // Default for other features
+    sharp_action: { free: 0, basic: 0, web: 0, premium: 999, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    public_betting: { free: 0, basic: 0, web: 0, premium: 999, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    officials_basic: { free: 1, basic: 1, web: 1, premium: 999, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    line_movement: { free: 0, basic: 0, web: 0, premium: 999, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    hold_calculator: { free: 0, basic: 0, web: 0, premium: 999, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    officials_auto: { free: 0, basic: 0, web: 0, premium: 0, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    clv_tracking: { free: 0, basic: 0, web: 0, premium: 0, elite: 999, ambassador: 999, lifetime_elite: 999 },
+    systems_builder: { free: 0, basic: 0, web: 0, premium: 0, elite: 999, ambassador: 999, lifetime_elite: 999 }
+  };
+  
+  return previewLimits[feature]?.[tier] || 0;
+}
 
 /**
  * Check if a user can access a specific feature
