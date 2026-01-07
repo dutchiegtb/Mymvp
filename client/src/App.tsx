@@ -7,6 +7,8 @@ import { useTokenRefresh } from "@/hooks/useTokenRefresh";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Fantasy from "@/pages/Fantasy";
+import Trends from "@/pages/Trends";
+import Systems from "@/pages/Systems";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -22,6 +24,8 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/fantasy" component={Fantasy} />
+      <Route path="/trends" component={Trends} />
+      <Route path="/systems" component={Systems} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />
