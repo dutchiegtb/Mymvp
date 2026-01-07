@@ -13,6 +13,14 @@ MVP is a sports betting odds comparison platform that scans 30+ sportsbooks in r
 - Automatic JWT token refresh (30-day expiration with hourly auto-refresh) to prevent session expiry
 - Prediction Markets now includes both Polymarket and Kalshi (CFTC-regulated) with platform badges
 
+**Version 2.3 Features** (10 Competitive Features):
+- **Phase 1**: Best Bets Daily, Sharp Action Indicators, Public Betting %, Officials Impact
+- **Phase 2**: Line Movement Graphs (recharts), Trends Library, Hold Calculator
+- **Phase 3 (Elite)**: CLV Tracking Dashboard, Systems Builder
+- Full tier-based access control: Free/Basic get previews, Premium+ gets features 1-7, Elite-only for features 8-10
+- Backend API routes with tier enforcement middleware (requireTier, optionalTierCheck)
+- New pages: `/trends` (Trends Library + Tools), `/systems` (Elite Analytics)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -29,7 +37,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend Pages
 - **Landing** (`/`) - Marketing page with features and pricing
-- **Dashboard** (`/dashboard`) - Main hub with tabs for Picks, Polymarket, Social, and Simulator; includes search bar and sports category navigation
+- **Dashboard** (`/dashboard`) - Main hub with tabs for Picks, Polymarket, Social, and Simulator; includes search bar and sports category navigation, Best Bets and Officials Impact sidebar
+- **Trends** (`/trends`) - Trends Library with betting trends, Line Movement graphs, and Hold Calculator (Premium+ tier gated)
+- **Systems** (`/systems`) - Elite Analytics with CLV Tracking Dashboard and Systems Builder (Elite-only)
 - **Fantasy** (`/fantasy`) - DFS Lineup Optimizer with value plays, correlated stacks, and avoid players (Premium+ tier gated)
 - **Login** (`/login`) - User sign in
 - **Register** (`/register`) - New account creation with promo code support
