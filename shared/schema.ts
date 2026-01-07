@@ -85,6 +85,13 @@ export const topPicks = pgTable("top_picks", {
   confidence: integer("confidence").notNull(),
   reasoning: text("reasoning"),
   rank: integer("rank"),
+  // Sharp action indicators
+  sharpAction: boolean("sharp_action").default(false),
+  sharpIndicator: varchar("sharp_indicator", { length: 50 }), // 'reverse_line', 'steam_move', 'money_divergence'
+  lineMovement: decimal("line_movement"), // How much line moved
+  sharpPercentage: decimal("sharp_percentage"), // What % of money is from sharps
+  // Public betting
+  publicBetPercent: decimal("public_bet_percent"), // % of bets on this side
   createdAt: timestamp("created_at").defaultNow(),
   expiresAt: timestamp("expires_at"),
 }, (table) => [
@@ -342,6 +349,112 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ═══════════════════════════════════════════════════════════════
+// ADVANCED BETTING FEATURES TABLES
+// ═══════════════════════════════════════════════════════════════
+
+// Officials (Referees/Umpires) tracking
+export const officials = pgTable("officials", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  sport: varchar("sport", { length: 50 }).notNull(),
+  position: varchar("position", { length: 100 }), // 'crew_chief', 'referee', 'umpire'
+  gamesWorked: integer("games_worked").default(0),
+  overWins: integer("over_wins").default(0),
+  underWins: integer("under_wins").default(0),
+  overPercentage: decimal("over_percentage"),
+  avgFoulsPerGame: decimal("avg_fouls_per_game"),
+  homeBiasPercentage: decimal("home_bias_percentage"),
+  paceFactor: decimal("pace_factor"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_officials_sport").on(table.sport),
+  index("idx_officials_name").on(table.name),
+]);
+
+// Game Officials assignments
+export const gameOfficials = pgTable("game_officials", {
+  id: serial("id").primaryKey(),
+  gameId: integer("game_id").references(() => games.id, { onDelete: "cascade" }),
+  officialId: integer("official_id").references(() => officials.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 50 }), // 'crew_chief', 'referee_1', 'referee_2'
+  assignedAt: timestamp("assigned_at").defaultNow(),
+}, (table) => [
+  index("idx_game_officials_game").on(table.gameId),
+]);
+
+// Odds History for line movement tracking
+export const oddsHistory = pgTable("odds_history", {
+  id: serial("id").primaryKey(),
+  gameId: integer("game_id").references(() => games.id, { onDelete: "cascade" }),
+  sportsbook: varchar("sportsbook", { length: 100 }).notNull(),
+  marketType: varchar("market_type", { length: 50 }).notNull(), // 'spread', 'total', 'moneyline'
+  oddsValue: decimal("odds_value").notNull(), // e.g., -5.5 for spread, 225.5 for total
+  americanOdds: integer("american_odds"), // e.g., -110
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("idx_odds_history_game").on(table.gameId),
+  index("idx_odds_history_timestamp").on(table.timestamp),
+]);
+
+// Betting Trends library
+export const bettingTrends = pgTable("betting_trends", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  sport: varchar("sport", { length: 50 }).notNull(),
+  category: varchar("category", { length: 50 }), // 'situational', 'team', 'player', 'official'
+  winRate: decimal("win_rate").notNull(),
+  sampleSize: integer("sample_size").notNull(),
+  roi: decimal("roi"),
+  conditions: jsonb("conditions"), // Query conditions
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_betting_trends_sport").on(table.sport),
+  index("idx_betting_trends_category").on(table.category),
+]);
+
+// User Bets for CLV tracking (Elite only)
+export const userBets = pgTable("user_bets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  gameId: integer("game_id").references(() => games.id, { onDelete: "cascade" }),
+  betType: varchar("bet_type", { length: 50 }), // 'spread', 'total', 'moneyline'
+  selection: varchar("selection", { length: 255 }),
+  oddsTaken: decimal("odds_taken"), // What odds user got
+  closingOdds: decimal("closing_odds"), // What odds closed at
+  clv: decimal("clv"), // Closing Line Value
+  result: varchar("result", { length: 20 }), // 'win', 'loss', 'push'
+  stake: decimal("stake").default("100"),
+  profit: decimal("profit"),
+  betAt: timestamp("bet_at").defaultNow(),
+  settledAt: timestamp("settled_at"),
+}, (table) => [
+  index("idx_user_bets_user").on(table.userId),
+  index("idx_user_bets_bet_at").on(table.betAt),
+]);
+
+// User Betting Systems (Elite only)
+export const userSystems = pgTable("user_systems", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  conditions: jsonb("conditions").notNull(), // Array of condition objects
+  sport: varchar("sport", { length: 50 }),
+  winRate: decimal("win_rate"),
+  roi: decimal("roi"),
+  sampleSize: integer("sample_size"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_systems_user").on(table.userId),
+]);
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGameSchema = createInsertSchema(games).omit({ id: true, createdAt: true, updatedAt: true });
@@ -362,6 +475,12 @@ export const insertPostLikeSchema = createInsertSchema(postLikes).omit({ id: tru
 export const insertPostCommentSchema = createInsertSchema(postComments).omit({ id: true, createdAt: true });
 export const insertTrackedPickSchema = createInsertSchema(trackedPicks).omit({ id: true, trackedAt: true });
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true, usedAt: true });
+export const insertOfficialSchema = createInsertSchema(officials).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGameOfficialSchema = createInsertSchema(gameOfficials).omit({ id: true, assignedAt: true });
+export const insertOddsHistorySchema = createInsertSchema(oddsHistory).omit({ id: true, timestamp: true });
+export const insertBettingTrendSchema = createInsertSchema(bettingTrends).omit({ id: true, createdAt: true });
+export const insertUserBetSchema = createInsertSchema(userBets).omit({ id: true, betAt: true });
+export const insertUserSystemSchema = createInsertSchema(userSystems).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -402,6 +521,18 @@ export type PostComment = typeof postComments.$inferSelect;
 export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type Official = typeof officials.$inferSelect;
+export type InsertOfficial = z.infer<typeof insertOfficialSchema>;
+export type GameOfficial = typeof gameOfficials.$inferSelect;
+export type InsertGameOfficial = z.infer<typeof insertGameOfficialSchema>;
+export type OddsHistory = typeof oddsHistory.$inferSelect;
+export type InsertOddsHistory = z.infer<typeof insertOddsHistorySchema>;
+export type BettingTrend = typeof bettingTrends.$inferSelect;
+export type InsertBettingTrend = z.infer<typeof insertBettingTrendSchema>;
+export type UserBet = typeof userBets.$inferSelect;
+export type InsertUserBet = z.infer<typeof insertUserBetSchema>;
+export type UserSystem = typeof userSystems.$inferSelect;
+export type InsertUserSystem = z.infer<typeof insertUserSystemSchema>;
 
 // Subscription tiers
 export type SubscriptionTier = "free" | "web" | "premium" | "elite";
