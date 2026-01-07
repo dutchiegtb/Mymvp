@@ -9,6 +9,10 @@ import PaywallCard from "@/components/PaywallCard";
 import OddsComparisonTable from "@/components/OddsComparisonTable";
 import ParlayBuilder from "@/components/ParlayBuilder";
 import TopPicksSection from "@/components/TopPicksSection";
+import BestBetsToday from "@/components/features/BestBetsToday";
+import OfficialsImpact from "@/components/features/OfficialsImpact";
+import { TrendsCompact } from "@/components/features/TrendsLibrary";
+import { LineMovementCompact } from "@/components/features/LineMovementChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -988,6 +992,30 @@ export default function Dashboard() {
                             onRemoveLeg={handleRemoveLeg}
                             onClear={handleClearParlay}
                           />
+
+                          <BestBetsToday />
+
+                          <OfficialsImpact officials={[]} />
+
+                          <Card className="p-4">
+                            <div className="flex items-center justify-between gap-2 mb-4">
+                              <h3 className="font-semibold">Quick Tools</h3>
+                            </div>
+                            <div className="space-y-3">
+                              <Link href="/trends">
+                                <Button variant="outline" className="w-full justify-start gap-2" data-testid="link-trends">
+                                  <TrendingUp className="h-4 w-4 text-[#00CFFF]" />
+                                  Trends Library
+                                </Button>
+                              </Link>
+                              <Link href="/systems">
+                                <Button variant="outline" className="w-full justify-start gap-2" data-testid="link-systems">
+                                  <Target className="h-4 w-4 text-[#FFCC00]" />
+                                  Elite Tools
+                                </Button>
+                              </Link>
+                            </div>
+                          </Card>
 
                           <PaywallCard
                             tierName="Premium"

@@ -42,6 +42,10 @@ export async function fetchLiveOdds(
     const response = await fetch(`${url}?${params}`);
     
     if (!response.ok) {
+      if (response.status === 401) {
+        console.warn("⚠️ ODDS_API_KEY is invalid or expired. Get a new key at https://the-odds-api.com/");
+        console.warn("⚠️ Falling back to mock data. Update your ODDS_API_KEY secret to get live odds.");
+      }
       throw new Error(`Odds API error: ${response.status} ${response.statusText}`);
     }
     
