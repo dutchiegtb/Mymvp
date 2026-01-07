@@ -58,6 +58,75 @@ const requireRole = (roles: string[]) => async (req: Request, res: Response, nex
 const requireAdmin = requireRole(['admin', 'super_admin']);
 const requireSuperAdmin = requireRole(['super_admin']);
 
+// Tier hierarchy: free < basic < web < premium < elite
+const TIER_LEVELS: Record<string, number> = {
+  free: 0,
+  basic: 1,
+  web: 2,
+  premium: 3,
+  elite: 4,
+};
+
+// Middleware to require minimum subscription tier (with admin bypass)
+const requireTier = (minTier: string) => async (req: Request, res: Response, next: NextFunction) => {
+  const minLevel = TIER_LEVELS[minTier] ?? 0;
+  
+  // Admin key bypass - same as requireRole for consistency
+  const adminKey = req.headers['x-admin-key'];
+  if (ADMIN_SECRET_KEY && adminKey === ADMIN_SECRET_KEY) {
+    return next();
+  }
+  
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ') && JWT_SECRET) {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      const user = await storage.getUser(decoded.userId);
+      
+      if (user) {
+        (req as any).user = user;
+        const userTier = user.subscriptionTier || 'free';
+        const userLevel = TIER_LEVELS[userTier] ?? 0;
+        
+        // Super admins bypass tier checks
+        if (user.role === 'super_admin' || userLevel >= minLevel) {
+          return next();
+        }
+        
+        return res.status(403).json({ 
+          error: 'Subscription tier required', 
+          requiredTier: minTier,
+          currentTier: userTier,
+          message: `Upgrade to ${minTier} to access this feature`
+        });
+      }
+    }
+  } catch (error) {
+    // JWT verification failed
+  }
+  
+  return res.status(401).json({ error: 'Authentication required' });
+};
+
+// Optional tier check - attaches user if authenticated but allows anonymous access with preview data
+const optionalTierCheck = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ') && JWT_SECRET) {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+      const user = await storage.getUser(decoded.userId);
+      if (user) {
+        (req as any).user = user;
+      }
+    }
+  } catch (error) {
+    // JWT verification failed - continue as anonymous
+  }
+  return next();
+};
+
 // In-memory cache for odds data (refreshed periodically)
 let cachedOdds: { data: EVPick[]; lastUpdated: Date } = {
   data: [],
@@ -2307,6 +2376,295 @@ export async function registerRoutes(app: Express): Promise<Server> {
         copy: shareText,
       },
       disclaimer: 'For entertainment purposes only. Gamble responsibly.',
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // COMPETITIVE FEATURES API ROUTES
+  // ═══════════════════════════════════════════════════════════════
+
+  // Best Bets Today - Feature #1 (Premium for full access, preview for all)
+  app.get("/api/best-bets", optionalTierCheck, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const userTier = user?.subscriptionTier || 'free';
+      const userLevel = TIER_LEVELS[userTier] ?? 0;
+      const isPremiumPlus = userLevel >= TIER_LEVELS.premium || user?.role === 'super_admin';
+      
+      // Get cached EV picks sorted by EV
+      const allBets = cachedOdds.data
+        .filter(pick => pick.evPercent >= 3)
+        .sort((a, b) => b.evPercent - a.evPercent)
+        .slice(0, 10)
+        .map((pick, i) => ({
+          id: i + 1,
+          event: pick.game,
+          selection: isPremiumPlus ? pick.selection : (i < 2 ? pick.selection : 'Upgrade for pick'),
+          sportsbook: isPremiumPlus ? pick.bestBook : (i < 2 ? pick.bestBook : 'Premium'),
+          odds: pick.bestOdds,
+          ev: pick.evPercent,
+          sport: pick.sport,
+          commenceTime: pick.commenceTime,
+          confidence: Math.min(95, 70 + pick.evPercent * 2),
+          rating: pick.evPercent >= 8 ? 'Elite' : pick.evPercent >= 5 ? 'Premium' : 'Standard',
+          locked: !isPremiumPlus && i >= 2,
+        }));
+      
+      // Limit preview for non-premium users
+      const visibleBets = isPremiumPlus ? allBets : allBets.slice(0, 4);
+
+      res.json({
+        bets: visibleBets,
+        lastUpdated: cachedOdds.lastUpdated.toISOString(),
+        count: visibleBets.length,
+        totalAvailable: allBets.length,
+        accessLevel: isPremiumPlus ? 'full' : 'preview',
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch best bets" });
+    }
+  });
+
+  // Sharp Action Indicators - Feature #2 (Premium for full access)
+  app.get("/api/sharp-action", optionalTierCheck, async (req: Request, res: Response) => {
+    const sport = req.query.sport as string;
+    const user = (req as any).user;
+    const userLevel = TIER_LEVELS[user?.subscriptionTier || 'free'] ?? 0;
+    const isPremiumPlus = userLevel >= TIER_LEVELS.premium || user?.role === 'super_admin';
+    
+    // Mock sharp action data - in production would come from line movement analysis
+    const allMoves = [
+      { gameId: 'sharp-1', event: 'Lakers @ Celtics', side: 'LAL +3.5', movement: -1.5, timestamp: new Date(Date.now() - 3600000).toISOString(), confidence: 85 },
+      { gameId: 'sharp-2', event: 'Chiefs vs Bills', side: 'KC -2.5', movement: -2.0, timestamp: new Date(Date.now() - 7200000).toISOString(), confidence: 92 },
+      { gameId: 'sharp-3', event: 'Yankees @ Red Sox', side: 'Under 8.5', movement: -0.5, timestamp: new Date(Date.now() - 1800000).toISOString(), confidence: 78 },
+    ].filter(m => !sport || m.gameId.includes(sport));
+    
+    // Limit preview for non-premium users
+    const visibleMoves = isPremiumPlus ? allMoves : allMoves.slice(0, 1).map(m => ({ ...m, side: 'Premium Only' }));
+
+    res.json({
+      moves: visibleMoves,
+      lastUpdated: new Date().toISOString(),
+      accessLevel: isPremiumPlus ? 'full' : 'preview',
+    });
+  });
+
+  // Public Betting Percentages - Feature #3 (Premium for full access)
+  app.get("/api/public-betting", optionalTierCheck, async (req: Request, res: Response) => {
+    const gameId = req.query.gameId as string;
+    const user = (req as any).user;
+    const userLevel = TIER_LEVELS[user?.subscriptionTier || 'free'] ?? 0;
+    const isPremiumPlus = userLevel >= TIER_LEVELS.premium || user?.role === 'super_admin';
+    
+    // Mock public betting data
+    const publicData = {
+      gameId: gameId || 'game-1',
+      spread: { home: 42, away: 58 },
+      moneyline: isPremiumPlus ? { home: 35, away: 65 } : null,
+      total: isPremiumPlus ? { over: 55, under: 45 } : null,
+      ticketSplit: isPremiumPlus ? { home: 38, away: 62 } : null,
+      moneySplit: isPremiumPlus ? { home: 52, away: 48 } : null,
+      lastUpdated: new Date().toISOString(),
+      accessLevel: isPremiumPlus ? 'full' : 'preview',
+    };
+
+    res.json(publicData);
+  });
+
+  // Officials Impact - Feature #4 (Premium for full access)
+  app.get("/api/officials", optionalTierCheck, async (req: Request, res: Response) => {
+    const sport = req.query.sport as string || 'basketball_nba';
+    const user = (req as any).user;
+    const userLevel = TIER_LEVELS[user?.subscriptionTier || 'free'] ?? 0;
+    const isPremiumPlus = userLevel >= TIER_LEVELS.premium || user?.role === 'super_admin';
+    
+    // Mock officials data with betting trends
+    const allOfficials = [
+      { id: 1, name: 'Scott Foster', sport: 'basketball_nba', avgTotal: 218.5, overPercentage: 58, foulRate: 'High', gamesRef: 1250, homeWinRate: 52 },
+      { id: 2, name: 'Tony Brothers', sport: 'basketball_nba', avgTotal: 221.2, overPercentage: 62, foulRate: 'Very High', gamesRef: 1180, homeWinRate: 48 },
+      { id: 3, name: 'Marc Davis', sport: 'basketball_nba', avgTotal: 215.8, overPercentage: 51, foulRate: 'Average', gamesRef: 980, homeWinRate: 54 },
+      { id: 4, name: 'Bill Vinovich', sport: 'americanfootball_nfl', avgTotal: 47.2, overPercentage: 54, foulRate: 'Low', gamesRef: 245, homeWinRate: 49 },
+      { id: 5, name: 'Clete Blakeman', sport: 'americanfootball_nfl', avgTotal: 49.8, overPercentage: 61, foulRate: 'High', gamesRef: 198, homeWinRate: 46 },
+    ].filter(o => !sport || o.sport === sport);
+    
+    // Limit preview for non-premium users
+    const visibleOfficials = isPremiumPlus ? allOfficials : allOfficials.slice(0, 1);
+
+    res.json({
+      officials: visibleOfficials,
+      lastUpdated: new Date().toISOString(),
+      totalAvailable: allOfficials.length,
+      accessLevel: isPremiumPlus ? 'full' : 'preview',
+    });
+  });
+
+  // Line Movement History - Feature #5 (Premium for full access)
+  app.get("/api/line-history/:gameId", optionalTierCheck, async (req: Request, res: Response) => {
+    const { gameId } = req.params;
+    const market = req.query.market as string || 'spread';
+    const user = (req as any).user;
+    const userLevel = TIER_LEVELS[user?.subscriptionTier || 'free'] ?? 0;
+    const isPremiumPlus = userLevel >= TIER_LEVELS.premium || user?.role === 'super_admin';
+    
+    // Mock line movement data - in production would come from odds_history table
+    const now = Date.now();
+    const fullHistory = Array.from({ length: 24 }, (_, i) => ({
+      timestamp: new Date(now - (23 - i) * 3600000).toISOString(),
+      value: market === 'spread' 
+        ? -3 + (Math.random() - 0.5) * 2 
+        : market === 'total' 
+          ? 220 + (Math.random() - 0.5) * 5 
+          : -150 + Math.floor(Math.random() * 50),
+      sportsbook: ['DraftKings', 'FanDuel', 'BetMGM', 'Caesars'][i % 4],
+    }));
+    
+    // Limit preview to last 6 hours for non-premium users
+    const history = isPremiumPlus ? fullHistory : fullHistory.slice(-6);
+
+    res.json({
+      gameId,
+      market,
+      history,
+      currentLine: fullHistory[fullHistory.length - 1].value,
+      openingLine: isPremiumPlus ? fullHistory[0].value : null,
+      movement: isPremiumPlus ? fullHistory[fullHistory.length - 1].value - fullHistory[0].value : null,
+      accessLevel: isPremiumPlus ? 'full' : 'preview',
+    });
+  });
+
+  // Betting Trends Library - Feature #6 (Premium for full access)
+  app.get("/api/trends", optionalTierCheck, async (req: Request, res: Response) => {
+    const sport = req.query.sport as string;
+    const type = req.query.type as string; // situational, historical, system
+    const user = (req as any).user;
+    const userLevel = TIER_LEVELS[user?.subscriptionTier || 'free'] ?? 0;
+    const isPremiumPlus = userLevel >= TIER_LEVELS.premium || user?.role === 'super_admin';
+    
+    // Mock trends data
+    const allTrends = [
+      { id: 1, name: 'Home Dogs After Loss', sport: 'basketball_nba', type: 'situational', hitRate: 58.2, sample: 245, roi: 8.4, lastUpdated: '2024-01-20' },
+      { id: 2, name: 'Unders in B2B Games', sport: 'basketball_nba', type: 'situational', hitRate: 54.8, sample: 189, roi: 5.2, lastUpdated: '2024-01-20' },
+      { id: 3, name: 'Road Favs -3 to -7', sport: 'americanfootball_nfl', type: 'system', hitRate: 56.1, sample: 312, roi: 6.8, lastUpdated: '2024-01-19' },
+      { id: 4, name: 'Divisional Unders', sport: 'americanfootball_nfl', type: 'situational', hitRate: 55.4, sample: 428, roi: 4.9, lastUpdated: '2024-01-18' },
+      { id: 5, name: 'Overs in Primetime', sport: 'americanfootball_nfl', type: 'historical', hitRate: 53.2, sample: 156, roi: 2.1, lastUpdated: '2024-01-17' },
+    ].filter(t => (!sport || t.sport === sport) && (!type || t.type === type));
+    
+    // Limit preview for non-premium users (show 2 with limited data)
+    const visibleTrends = isPremiumPlus ? allTrends : allTrends.slice(0, 2).map(t => ({
+      ...t,
+      roi: null, // Hide ROI for preview
+      sample: null, // Hide sample size for preview
+    }));
+
+    res.json({
+      trends: visibleTrends,
+      count: visibleTrends.length,
+      totalAvailable: allTrends.length,
+      lastUpdated: new Date().toISOString(),
+      accessLevel: isPremiumPlus ? 'full' : 'preview',
+    });
+  });
+
+  // Hold Calculator - Feature #7
+  app.get("/api/hold-calculator", async (req: Request, res: Response) => {
+    const odds1 = parseFloat(req.query.odds1 as string) || -110;
+    const odds2 = parseFloat(req.query.odds2 as string) || -110;
+    
+    // Calculate implied probabilities
+    const impliedProb = (odds: number) => {
+      if (odds > 0) return 100 / (odds + 100);
+      return Math.abs(odds) / (Math.abs(odds) + 100);
+    };
+    
+    const prob1 = impliedProb(odds1);
+    const prob2 = impliedProb(odds2);
+    const totalProb = prob1 + prob2;
+    const hold = (totalProb - 1) * 100;
+    const fairOdds1 = prob1 < 0.5 ? ((1 / prob1 - 1) * 100) : (-100 / (1 / prob1 - 1));
+    const fairOdds2 = prob2 < 0.5 ? ((1 / prob2 - 1) * 100) : (-100 / (1 / prob2 - 1));
+    
+    res.json({
+      odds1,
+      odds2,
+      impliedProb1: (prob1 * 100).toFixed(2),
+      impliedProb2: (prob2 * 100).toFixed(2),
+      totalImpliedProb: (totalProb * 100).toFixed(2),
+      hold: hold.toFixed(2),
+      noVigProb1: ((prob1 / totalProb) * 100).toFixed(2),
+      noVigProb2: ((prob2 / totalProb) * 100).toFixed(2),
+      fairOdds1: Math.round(fairOdds1),
+      fairOdds2: Math.round(fairOdds2),
+      rating: hold < 3 ? 'Excellent' : hold < 5 ? 'Good' : hold < 7 ? 'Average' : 'Poor',
+    });
+  });
+
+  // CLV Tracking - Feature #8 (Elite only)
+  app.get("/api/clv/:userId", requireTier('elite'), async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    
+    // Mock CLV data - in production would calculate from user_bets and odds_history
+    const clvData = {
+      userId: parseInt(userId),
+      overallCLV: 2.8,
+      betsAnalyzed: 156,
+      positiveCLVRate: 62,
+      averageCLVPerBet: 1.2,
+      byMarket: {
+        spread: { clv: 3.1, bets: 68 },
+        moneyline: { clv: 2.4, bets: 52 },
+        total: { clv: 2.9, bets: 36 },
+      },
+      recentBets: [
+        { id: 1, event: 'Lakers @ Celtics', selection: 'LAL +4', clv: 3.5, closingLine: 'LAL +2.5', date: '2024-01-20' },
+        { id: 2, event: 'Chiefs vs Bills', selection: 'Under 51', clv: 1.8, closingLine: 'Under 49.5', date: '2024-01-19' },
+        { id: 3, event: 'Yankees @ Red Sox', selection: 'NYY ML', clv: -0.5, closingLine: 'NYY -125', date: '2024-01-18' },
+      ],
+      trend: 'improving',
+      lastUpdated: new Date().toISOString(),
+    };
+
+    res.json(clvData);
+  });
+
+  // User Betting Systems - Feature #9 & #10 (Elite only)
+  app.get("/api/systems", requireTier('elite'), async (req: Request, res: Response) => {
+    const userId = req.query.userId as string;
+    
+    // Mock systems data
+    const systems = [
+      { id: 1, name: 'Sharp Fade System', rules: ['Fade 70%+ public', 'Line moved 1+ pts'], hitRate: 57.8, roi: 9.2, bets: 145, status: 'active' },
+      { id: 2, name: 'Value Dogs', rules: ['Home dog +3 to +7', 'EV > 5%'], hitRate: 54.2, roi: 6.8, bets: 89, status: 'active' },
+      { id: 3, name: 'Prime Time Unders', rules: ['Primetime game', 'Total > 48'], hitRate: 52.1, roi: 3.4, bets: 67, status: 'paused' },
+    ];
+
+    res.json({
+      systems,
+      count: systems.length,
+      lastUpdated: new Date().toISOString(),
+    });
+  });
+
+  app.post("/api/systems", requireTier('elite'), async (req: Request, res: Response) => {
+    const { name, rules, description } = req.body;
+    
+    if (!name || !rules || !Array.isArray(rules)) {
+      return res.status(400).json({ error: "Name and rules array required" });
+    }
+    
+    // In production would save to database
+    res.json({
+      success: true,
+      system: {
+        id: Date.now(),
+        name,
+        rules,
+        description: description || '',
+        hitRate: 0,
+        roi: 0,
+        bets: 0,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      },
     });
   });
 
