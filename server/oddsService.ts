@@ -43,7 +43,17 @@ export async function fetchLiveOdds(
     
     if (!response.ok) {
       if (response.status === 401) {
-        console.warn("⚠️ ODDS_API_KEY is invalid or expired. Get a new key at https://the-odds-api.com/");
+        // Try to parse error to distinguish between invalid key vs quota exceeded
+        try {
+          const errorData = await response.json() as { error_code?: string; message?: string };
+          if (errorData.error_code === 'OUT_OF_USAGE_CREDITS') {
+            console.warn("⚠️ Odds API usage quota exceeded. Upgrade your plan at https://the-odds-api.com/");
+          } else {
+            console.warn("⚠️ ODDS_API_KEY is invalid or expired. Get a new key at https://the-odds-api.com/");
+          }
+        } catch {
+          console.warn("⚠️ ODDS_API_KEY is invalid or expired. Get a new key at https://the-odds-api.com/");
+        }
         console.warn("⚠️ Falling back to mock data. Update your ODDS_API_KEY secret to get live odds.");
       }
       throw new Error(`Odds API error: ${response.status} ${response.statusText}`);
