@@ -1054,6 +1054,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let user = null;
       if (email) {
         user = await storage.getUserByEmail(email.toLowerCase());
+        if (!user) {
+          user = await storage.getUserByEmail(email);
+        }
       } else if (username) {
         user = await storage.getUserByUsername(username);
       }
