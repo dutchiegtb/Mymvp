@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, ArrowRight } from "lucide-react";
 
@@ -9,33 +10,32 @@ export default function Hero() {
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 text-primary text-sm font-semibold border border-primary/30">
               <TrendingUp className="h-4 w-4" />
-              <span>Trusted by 10,000+ bettors</span>
+              <span>Free & Open Source</span>
             </div>
             
-            <h1 className="text-5xl md:text-6xl font-bold leading-tight" data-testid="text-hero-title">
+            <h1 className="text-5xl md:text-6xl font-bold leading-tight">
               Find The Best Betting Value In Seconds
             </h1>
             
-            <p className="text-xl text-muted-foreground leading-relaxed" data-testid="text-hero-subtitle">
+            <p className="text-xl text-muted-foreground leading-relaxed">
               Compare odds across 30+ sportsbooks in real-time. Our EV calculator identifies profitable opportunities so you can make smarter bets.
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <Button size="lg" className="gap-2" data-testid="button-start-trial">
-                Start Free Trial
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button size="lg" variant="outline" data-testid="button-view-sample">
-                View Sample Picks
-              </Button>
+              <Link href="/dashboard">
+                <Button size="lg" className="gap-2">
+                  Open Dashboard
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="https://github.com/dutchiegtb/Mymvp" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" variant="outline">
+                  View on GitHub
+                </Button>
+              </a>
             </div>
 
             <div className="flex items-center gap-8 pt-4">
-              <div>
-                <div className="text-3xl font-bold text-primary">$2M+</div>
-                <div className="text-sm text-muted-foreground">Value Found</div>
-              </div>
-              <div className="h-12 w-px bg-border"></div>
               <div>
                 <div className="text-3xl font-bold text-primary">30+</div>
                 <div className="text-sm text-muted-foreground">Sportsbooks</div>
@@ -44,6 +44,11 @@ export default function Hero() {
               <div>
                 <div className="text-3xl font-bold text-primary">5</div>
                 <div className="text-sm text-muted-foreground">Major Sports</div>
+              </div>
+              <div className="h-12 w-px bg-border"></div>
+              <div>
+                <div className="text-3xl font-bold text-primary">3%+</div>
+                <div className="text-sm text-muted-foreground">Min EV Edge</div>
               </div>
             </div>
           </div>

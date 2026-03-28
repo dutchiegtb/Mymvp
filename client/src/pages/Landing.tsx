@@ -2,16 +2,14 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import Hero from "@/components/Hero";
 import FeatureCard from "@/components/FeatureCard";
-import PricingCard from "@/components/PricingCard";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   Zap,
   Calculator,
   BarChart3,
-  MessageSquare,
-  Bell,
   Target,
   TrendingUp,
+  GitCompare,
 } from "lucide-react";
 
 export default function Landing() {
@@ -32,78 +30,19 @@ export default function Landing() {
       description: "Compare lines across all major sportsbooks side-by-side in one clean interface.",
     },
     {
-      icon: MessageSquare,
-      title: "Discord Integration",
-      description: "Get instant picks and alerts directly in your Discord server with slash commands.",
-    },
-    {
-      icon: Bell,
-      title: "Line Movement Alerts",
-      description: "Receive notifications when odds shift in your favor or EV spikes occur.",
+      icon: GitCompare,
+      title: "Parlay Builder",
+      description: "Combine your best picks into parlays and see combined odds and potential payouts instantly.",
     },
     {
       icon: Target,
-      title: "Sharp Picks",
-      description: "Access professional-grade betting insights with our curated sharp picks.",
-    },
-  ];
-
-  const pricingTiers = [
-    {
-      tierName: "Free",
-      price: "$0",
-      features: [
-        { name: "3 EV picks per day", included: true },
-        { name: "Basic sports (NFL, NBA, MLB, NHL)", included: true },
-        { name: "Delayed data (15 min)", included: true },
-        { name: "Parlay builder", included: false },
-        { name: "Social features", included: false },
-        { name: "Discord bot", included: false },
-      ],
-      ctaText: "Get Started",
+      title: "Confidence Scoring",
+      description: "Each pick comes with a confidence score based on the size of the EV edge detected.",
     },
     {
-      tierName: "Basic",
-      price: "$9.99",
-      description: "Upgrade your betting game with serious tools",
-      features: [
-        { name: "15 EV picks daily across 40+ sports", included: true },
-        { name: "Real-time odds from 30+ sportsbooks", included: true },
-        { name: "2-leg parlay builder with live EV", included: true },
-        { name: "Full Performance Simulator suite", included: true },
-        { name: "XP, levels & achievement badges", included: true },
-        { name: "Discord bot notifications", included: false },
-      ],
-      ctaText: "Subscribe",
-    },
-    {
-      tierName: "Premium",
-      price: "$19.99",
-      description: "Go unlimited - our most popular plan",
-      features: [
-        { name: "Unlimited EV picks daily", included: true },
-        { name: "All 40+ sports + Polymarket", included: true },
-        { name: "Unlimited multi-leg parlay builder", included: true },
-        { name: "Social features & leaderboards", included: true },
-        { name: "Discord bot with batch updates", included: true },
-        { name: "Telegram AI Assistant", included: false },
-      ],
-      isPopular: true,
-      ctaText: "Subscribe",
-    },
-    {
-      tierName: "Elite",
-      price: "$49.99",
-      description: "Complete professional betting toolkit",
-      features: [
-        { name: "Everything in Premium", included: true },
-        { name: "24/7 Telegram AI Assistant (Claude)", included: true },
-        { name: "Priority picks 5-10 min early access", included: true },
-        { name: "Advanced analytics & CLV tracking", included: true },
-        { name: "Elite badge & profile customization", included: true },
-        { name: "Private Elite Discord & Telegram", included: true },
-      ],
-      ctaText: "Go Elite",
+      icon: TrendingUp,
+      title: "Open Source",
+      description: "Free and open source. Run it locally, deploy it yourself, or contribute to the project.",
     },
   ];
 
@@ -120,27 +59,21 @@ export default function Landing() {
             </div>
 
             <nav className="hidden md:flex items-center gap-6">
-              <Link href="#features" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md">
+              <a href="#features" className="text-sm font-medium hover:text-primary px-3 py-2 rounded-md">
                 Features
-              </Link>
-              <Link href="#pricing" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md">
-                Pricing
-              </Link>
-              <Link href="/ambassador" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md text-amber-400" data-testid="link-ambassador">
-                Become Ambassador
-              </Link>
-              <Link href="/dashboard" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-dashboard">
+              </a>
+              <Link href="/dashboard" className="text-sm font-medium hover:text-primary px-3 py-2 rounded-md">
                 Dashboard
               </Link>
+              <a href="https://github.com/dutchiegtb/Mymvp" target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:text-primary px-3 py-2 rounded-md">
+                GitHub
+              </a>
             </nav>
 
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <Link href="/login">
-                <Button variant="outline" data-testid="button-sign-in">Sign In</Button>
-              </Link>
-              <Link href="/register">
-                <Button data-testid="button-get-started">Get Started</Button>
+              <Link href="/dashboard">
+                <Button>Open Dashboard</Button>
               </Link>
             </div>
           </div>
@@ -153,35 +86,16 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Everything You Need to Win
+              Everything You Need to Find Value
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Professional-grade tools that help you identify value and make smarter betting decisions.
+              Professional-grade tools that help you identify value and make smarter betting decisions — completely free and open source.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, i) => (
               <FeatureCard key={i} {...feature} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="pricing" className="py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Simple, Transparent Pricing
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Choose the plan that fits your betting strategy. All plans include access to our core features.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {pricingTiers.map((tier, i) => (
-              <PricingCard key={i} {...tier} />
             ))}
           </div>
         </div>
@@ -194,13 +108,15 @@ export default function Landing() {
             Ready to Start Finding Value?
           </h2>
           <p className="text-lg text-primary-foreground/90">
-            Join thousands of smart bettors using MVP to maximize their edge.
+            No sign-up required. Just open the dashboard and start scanning.
           </p>
           <div className="flex flex-wrap gap-4 justify-center pt-4">
-            <Button size="lg" className="gap-2 bg-background text-foreground hover:bg-background/90 border-2 border-primary" data-testid="button-cta-start">
-              Start Free Trial
-              <TrendingUp className="h-4 w-4" />
-            </Button>
+            <Link href="/dashboard">
+              <Button size="lg" className="gap-2 bg-background text-foreground hover:bg-background/90 border-2 border-primary">
+                Open Dashboard
+                <TrendingUp className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -215,7 +131,10 @@ export default function Landing() {
               <span className="font-semibold">MVP</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2025 MVP. All rights reserved.
+              Open source · MIT License · Built by{" "}
+              <a href="https://github.com/dutchiegtb" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                @dutchiegtb
+              </a>
             </p>
           </div>
         </div>

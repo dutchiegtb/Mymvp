@@ -1,4 +1,4 @@
-// The Odds API Service for MVP
+// The Odds API Service
 // Fetches real-time odds from 30+ sportsbooks
 
 import { SUPPORTED_SPORTS, type SportKey } from "@shared/schema";
@@ -43,25 +43,23 @@ export async function fetchLiveOdds(
     
     if (!response.ok) {
       if (response.status === 401) {
-        // Try to parse error to distinguish between invalid key vs quota exceeded
         try {
           const errorData = await response.json() as { error_code?: string; message?: string };
           if (errorData.error_code === 'OUT_OF_USAGE_CREDITS') {
-            console.warn("⚠️ Odds API usage quota exceeded. Upgrade your plan at https://the-odds-api.com/");
+            console.warn("⚠️ Odds API usage quota exceeded. Upgrade at https://the-odds-api.com/");
           } else {
-            console.warn("⚠️ ODDS_API_KEY is invalid or expired. Get a new key at https://the-odds-api.com/");
+            console.warn("⚠️ ODDS_API_KEY is invalid. Get a key at https://the-odds-api.com/");
           }
         } catch {
-          console.warn("⚠️ ODDS_API_KEY is invalid or expired. Get a new key at https://the-odds-api.com/");
+          console.warn("⚠️ ODDS_API_KEY is invalid. Get a key at https://the-odds-api.com/");
         }
-        console.warn("⚠️ Falling back to mock data. Update your ODDS_API_KEY secret to get live odds.");
+        console.warn("⚠️ Falling back to mock data.");
       }
       throw new Error(`Odds API error: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json() as OddsAPIGame[];
     
-    // Track API usage from headers
     const remainingRequests = response.headers.get("x-requests-remaining");
     const usedRequests = response.headers.get("x-requests-used");
     
@@ -105,7 +103,7 @@ export async function fetchAllSportsOdds(): Promise<OddsAPIGame[]> {
 }
 
 /**
- * Get available sports from The Odds API
+ * Get available sports
  */
 export async function getAvailableSports(): Promise<Array<{key: string; name: string; emoji: string}>> {
   return SUPPORTED_SPORTS.map(sport => ({
@@ -120,7 +118,7 @@ export async function getAvailableSports(): Promise<Array<{key: string; name: st
  */
 function getMockOddsData(sport: SportKey): OddsAPIGame[] {
   const now = new Date();
-  const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours from now
+  const later = new Date(now.getTime() + 3 * 60 * 60 * 1000);
   
   const mockGames: Record<string, OddsAPIGame[]> = {
     basketball_nba: [
@@ -135,59 +133,57 @@ function getMockOddsData(sport: SportKey): OddsAPIGame[] {
           {
             title: "FanDuel",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "LeBron James", price: -115, point: 27.5 },
-                ],
-              },
-              {
-                key: "h2h",
-                outcomes: [
-                  { name: "Los Angeles Lakers", price: -120 },
-                  { name: "Golden State Warriors", price: 105 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Los Angeles Lakers", price: -120 },
+                { name: "Golden State Warriors", price: 105 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Los Angeles Lakers", price: -110, point: -2.5 },
+                { name: "Golden State Warriors", price: -110, point: 2.5 },
+              ]},
+              { key: "totals", outcomes: [
+                { name: "Over", price: -110, point: 228.5 },
+                { name: "Under", price: -110, point: 228.5 },
+              ]},
             ],
           },
           {
             title: "DraftKings",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "LeBron James", price: -105, point: 28.0 },
-                ],
-              },
-              {
-                key: "h2h",
-                outcomes: [
-                  { name: "Los Angeles Lakers", price: -115 },
-                  { name: "Golden State Warriors", price: 100 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Los Angeles Lakers", price: -115 },
+                { name: "Golden State Warriors", price: 100 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Los Angeles Lakers", price: -105, point: -3.0 },
+                { name: "Golden State Warriors", price: -115, point: 3.0 },
+              ]},
+              { key: "totals", outcomes: [
+                { name: "Over", price: -105, point: 229.0 },
+                { name: "Under", price: -115, point: 229.0 },
+              ]},
             ],
           },
           {
             title: "BetMGM",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "LeBron James", price: -110, point: 28.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Los Angeles Lakers", price: -125 },
+                { name: "Golden State Warriors", price: 110 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Los Angeles Lakers", price: -108, point: -2.0 },
+                { name: "Golden State Warriors", price: -112, point: 2.0 },
+              ]},
             ],
           },
           {
-            title: "PrizePicks",
+            title: "Caesars",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "LeBron James", price: -110, point: 29.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Los Angeles Lakers", price: -118 },
+                { name: "Golden State Warriors", price: 102 },
+              ]},
             ],
           },
         ],
@@ -203,25 +199,73 @@ function getMockOddsData(sport: SportKey): OddsAPIGame[] {
           {
             title: "FanDuel",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "Jayson Tatum", price: -112, point: 26.5 },
-                  { name: "Giannis Antetokounmpo", price: -108, point: 30.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Boston Celtics", price: -150 },
+                { name: "Milwaukee Bucks", price: 130 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Boston Celtics", price: -110, point: -4.5 },
+                { name: "Milwaukee Bucks", price: -110, point: 4.5 },
+              ]},
             ],
           },
           {
             title: "DraftKings",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "Jayson Tatum", price: -105, point: 27.0 },
-                  { name: "Giannis Antetokounmpo", price: -115, point: 31.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Boston Celtics", price: -145 },
+                { name: "Milwaukee Bucks", price: 125 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Boston Celtics", price: -108, point: -4.0 },
+                { name: "Milwaukee Bucks", price: -112, point: 4.0 },
+              ]},
+            ],
+          },
+          {
+            title: "BetMGM",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Boston Celtics", price: -155 },
+                { name: "Milwaukee Bucks", price: 135 },
+              ]},
+            ],
+          },
+        ],
+      },
+      {
+        id: "nba_mock_3",
+        sport_key: "basketball_nba",
+        sport_title: "NBA",
+        commence_time: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(),
+        home_team: "Denver Nuggets",
+        away_team: "Phoenix Suns",
+        bookmakers: [
+          {
+            title: "FanDuel",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Denver Nuggets", price: -180 },
+                { name: "Phoenix Suns", price: 155 },
+              ]},
+            ],
+          },
+          {
+            title: "DraftKings",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Denver Nuggets", price: -165 },
+                { name: "Phoenix Suns", price: 140 },
+              ]},
+            ],
+          },
+          {
+            title: "Caesars",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Denver Nuggets", price: -175 },
+                { name: "Phoenix Suns", price: 150 },
+              ]},
             ],
           },
         ],
@@ -239,23 +283,36 @@ function getMockOddsData(sport: SportKey): OddsAPIGame[] {
           {
             title: "FanDuel",
             markets: [
-              {
-                key: "player_pass_yds",
-                outcomes: [
-                  { name: "Patrick Mahomes", price: -115, point: 285.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Kansas City Chiefs", price: -140 },
+                { name: "Buffalo Bills", price: 120 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Kansas City Chiefs", price: -110, point: -3.0 },
+                { name: "Buffalo Bills", price: -110, point: 3.0 },
+              ]},
             ],
           },
           {
             title: "BetMGM",
             markets: [
-              {
-                key: "player_pass_yds",
-                outcomes: [
-                  { name: "Patrick Mahomes", price: -105, point: 280.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Kansas City Chiefs", price: -135 },
+                { name: "Buffalo Bills", price: 115 },
+              ]},
+              { key: "spreads", outcomes: [
+                { name: "Kansas City Chiefs", price: -105, point: -2.5 },
+                { name: "Buffalo Bills", price: -115, point: 2.5 },
+              ]},
+            ],
+          },
+          {
+            title: "DraftKings",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Kansas City Chiefs", price: -145 },
+                { name: "Buffalo Bills", price: 125 },
+              ]},
             ],
           },
         ],
@@ -273,30 +330,105 @@ function getMockOddsData(sport: SportKey): OddsAPIGame[] {
           {
             title: "DraftKings",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "Connor McDavid", price: -120, point: 1.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Edmonton Oilers", price: -130 },
+                { name: "Colorado Avalanche", price: 115 },
+              ]},
             ],
           },
           {
             title: "FanDuel",
             markets: [
-              {
-                key: "player_points",
-                outcomes: [
-                  { name: "Connor McDavid", price: -105, point: 1.5 },
-                ],
-              },
+              { key: "h2h", outcomes: [
+                { name: "Edmonton Oilers", price: -120 },
+                { name: "Colorado Avalanche", price: 105 },
+              ]},
+            ],
+          },
+          {
+            title: "Caesars",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Edmonton Oilers", price: -125 },
+                { name: "Colorado Avalanche", price: 108 },
+              ]},
             ],
           },
         ],
       },
     ],
-    baseball_mlb: [],
-    soccer_epl: [],
+    baseball_mlb: [
+      {
+        id: "mlb_mock_1",
+        sport_key: "baseball_mlb",
+        sport_title: "MLB",
+        commence_time: later.toISOString(),
+        home_team: "New York Yankees",
+        away_team: "Boston Red Sox",
+        bookmakers: [
+          {
+            title: "FanDuel",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "New York Yankees", price: -155 },
+                { name: "Boston Red Sox", price: 135 },
+              ]},
+            ],
+          },
+          {
+            title: "DraftKings",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "New York Yankees", price: -145 },
+                { name: "Boston Red Sox", price: 125 },
+              ]},
+            ],
+          },
+        ],
+      },
+    ],
+    soccer_epl: [
+      {
+        id: "epl_mock_1",
+        sport_key: "soccer_epl",
+        sport_title: "Premier League",
+        commence_time: later.toISOString(),
+        home_team: "Arsenal",
+        away_team: "Chelsea",
+        bookmakers: [
+          {
+            title: "FanDuel",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Arsenal", price: -140 },
+                { name: "Chelsea", price: 380 },
+                { name: "Draw", price: 280 },
+              ]},
+            ],
+          },
+          {
+            title: "DraftKings",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Arsenal", price: -130 },
+                { name: "Chelsea", price: 350 },
+                { name: "Draw", price: 260 },
+              ]},
+            ],
+          },
+          {
+            title: "BetMGM",
+            markets: [
+              { key: "h2h", outcomes: [
+                { name: "Arsenal", price: -145 },
+                { name: "Chelsea", price: 400 },
+                { name: "Draw", price: 290 },
+              ]},
+            ],
+          },
+        ],
+      },
+    ],
   };
   
   return mockGames[sport] || [];
